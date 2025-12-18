@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Book Summarizer</title>
+
+<style>
+* {
+  box-sizing: border-box;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(120deg, #eef4ff, #f3ecff, #fff1f8);
+  color: #1f2937;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 64px;
+}
+
+header img {
+  height: 64px;
+}
+
+nav a {
+  margin-left: 28px;
+  text-decoration: none;
+  color: #374151;
+  font-weight: 500;
+  position: relative;
+}
+
+nav a::after {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 2px;
+  background: #4f46e5;
+  left: 0;
+  bottom: -6px;
+  transition: width 0.3s;
+}
+
+nav a:hover {
+  color: #111827;
+}
+
+nav a:hover::after {
+  width: 100%;
+}
+
+.login-btn {
+  margin-left: 40px;
+  padding: 8px 18px;
+  border-radius: 20px;
+  background: #4f46e5;
+  color: white;
+}
+
+.hero {
+  text-align: center;
+  padding: 60px 20px 80px;
+}
+
+.hero h1 {
+  font-size: 52px;
+  font-weight: 800;
+}
+
+.hero p {
+  max-width: 620px;
+  margin: 16px auto 40px;
+  color: #6b7280;
+  font-size: 18px;
+}
+
+.hero-image img {
+  width: 480px;
+  filter: drop-shadow(0 30px 60px rgba(255,180,120,0.35));
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+  100% { transform: translateY(0); }
+}
+
+section {
+  padding: 110px 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+section h2 {
+  font-size: 40px;
+  font-weight: 800;
+  margin-bottom: 26px;
+  color: #111827;              /* Deep readable heading */
+  letter-spacing: -0.4px;
+}
+
+section p {
+  max-width: 720px;
+  font-size: 18px;
+  line-height: 1.75;           /* More readable lines */
+  color: #4b5563;              /* Softer gray */
+  margin-bottom: 12px;
+}
+
+
+.features {
+  display: flex;
+  gap: 80px;
+  align-items: center;
+}
+
+.book-cards {
+  position: relative;
+  width: 260px;
+}
+
+.book-cards img {
+  width: 220px;
+  position: absolute;
+  border-radius: 12px;
+  box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+}
+
+.book1 { transform: rotate(-10deg); left: 0; }
+.book2 { transform: rotate(0deg); left: 30px; }
+.book3 { transform: rotate(10deg); left: 60px; }
+
+.summary-box {
+  background: white;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+  width: 360px;
+  animation: pulse 2.5s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 rgba(79,70,229,0.4); }
+  50% { box-shadow: 0 0 30px rgba(79,70,229,0.4); }
+  100% { box-shadow: 0 0 0 rgba(79,70,229,0.4); }
+}
+
+.contact-form {
+  max-width: 420px;
+}
+
+.contact-form input,
+.contact-form textarea {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+}
+
+.contact-form button {
+  padding: 12px 30px;
+  border-radius: 20px;
+  border: none;
+  background: #4f46e5;
+  color: white;
+  cursor: pointer;
+}
+
+footer {
+  text-align: center;
+  padding: 24px;
+  background: rgba(255,255,255,0.6);
+  color: #6b7280;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <img src="../Image/logo.png">
+  <nav>
+    <a href="#about">About</a>
+    <a href="#features">Features</a>
+    <a href="#contact">Contact</a>
+    <a href="#" class="login-btn">Login</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <h1>AI-powered Book Summarization</h1>
+  <p>Upload PDF, DOCX or TXT books and instantly generate intelligent summaries using AI.</p>
+  <div class="hero-image">
+    <img src="../Image/book.jpg">
+  </div>
+</section>
+
+<section id="about">
+  <h2>About</h2>
+  <p>
+   At BookBreif AI, we believe that a busy schedule shouldn't limit your intellectual growth. 
+   Our mission is to transform the world’s most influential books into clear, high-impact summaries that respect your time without sacrificing depth.
+    We pride ourselves on absolute accuracy, ensuring that every summary faithfully captures the author’s original intent, core arguments, and nuances. 
+    Instead of just skimming the surface, we provide a precise roadmap of the book's most vital lessons and actionable insights. Whether you are looking to master a new skill or explore a classic, our summaries deliver the authentic essence of every chapter. 
+    Dive into our library and gain a library’s worth of knowledge in just a few minutes of reading.
+  </p>
+</section>
+
+<section id="features" class="features">
+  <div class="book-cards">
+    <img src="../Image/book.jpg" class="book1">
+    <img src="../Image/book.jpg" class="book2">
+    <img src="../Image/book.jpg" class="book3">
+  </div>
+
+  <div class="summary-box">
+    <h3>AI Summary</h3>
+    <p>📘 Book uploaded…</p>
+    <p>🤖 Generating summary…</p>
+    <p>✅ Summary ready!</p>
+  </div>
+</section>
+
+<section id="contact">
+  <h2>Contact</h2>
+  <div class="contact-form">
+    <input type="text" placeholder="Your Name">
+    <input type="email" placeholder="Email">
+    <textarea rows="4" placeholder="Message"></textarea>
+    <button>Send</button>
+  </div>
+</section>
+
+<footer>
+  © 2025 AI Book Summarizer. All rights reserved.
+</footer>
+
+</body>
+</html>
