@@ -5,18 +5,22 @@
 <title>AI Book Summarizer</title>
 
 <style>
+/* ---------------- RESET ---------------- */
 * {
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
   scroll-behavior: smooth;
 }
 
+/* ---------------- BODY ---------------- */
 body {
-  margin: 0;
   font-family: 'Inter', sans-serif;
   background: linear-gradient(120deg, #eef4ff, #f3ecff, #fff1f8);
   color: #1f2937;
 }
 
+/* ---------------- HEADER ---------------- */
 header {
   display: flex;
   justify-content: space-between;
@@ -44,11 +48,7 @@ nav a::after {
   background: #4f46e5;
   left: 0;
   bottom: -6px;
-  transition: width 0.3s;
-}
-
-nav a:hover {
-  color: #111827;
+  transition: width 0.3s ease;
 }
 
 nav a:hover::after {
@@ -56,16 +56,16 @@ nav a:hover::after {
 }
 
 .login-btn {
-  margin-left: 40px;
-  padding: 8px 18px;
+  padding: 8px 20px;
   border-radius: 20px;
   background: #4f46e5;
-  color: white;
+  color: #fff;
 }
 
+/* ---------------- HERO ---------------- */
 .hero {
   text-align: center;
-  padding: 60px 20px 80px;
+  padding: 80px 20px 120px;
 }
 
 .hero h1 {
@@ -75,87 +75,144 @@ nav a:hover::after {
 
 .hero p {
   max-width: 620px;
-  margin: 16px auto 40px;
-  color: #6b7280;
+  margin: 18px auto 40px;
   font-size: 18px;
+  color: #6b7280;
 }
 
 .hero-image img {
   width: 480px;
-  filter: drop-shadow(0 30px 60px rgba(255,180,120,0.35));
   animation: float 4s ease-in-out infinite;
+  filter: drop-shadow(0 30px 60px rgba(0,0,0,0.25));
 }
 
+/* Floating animation */
 @keyframes float {
   0% { transform: translateY(0); }
   50% { transform: translateY(-14px); }
   100% { transform: translateY(0); }
 }
 
+/* ---------------- SECTIONS ---------------- */
 section {
-  padding: 110px 90px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
+  padding: 120px 90px;
 }
 
 section h2 {
-  font-size: 40px;
+  font-size: 42px;
   font-weight: 800;
-  margin-bottom: 26px;
-  color: #111827;              /* Deep readable heading */
-  letter-spacing: -0.4px;
+  margin-bottom: 28px;
+  text-align: center;
 }
 
 section p {
-  max-width: 720px;
+  max-width: 760px;
+  margin: auto;
   font-size: 18px;
-  line-height: 1.75;           /* More readable lines */
-  color: #4b5563;              /* Softer gray */
-  margin-bottom: 12px;
+  line-height: 1.8;
+  color: #4b5563;
+  text-align: center;
 }
 
-
-.features {
+/* ---------------- FEATURES ---------------- */
+.features-section {
   display: flex;
-  gap: 80px;
   align-items: center;
+  justify-content: space-between;
+  gap: 80px;
 }
 
-.book-cards {
+/* LEFT */
+.feature-left {
+  flex: 1;
+}
+
+.feature-left h2 {
+  text-align: center;
+  font-size: 40px;
+}
+
+.feature-left p {
+  text-align: center;
+  max-width: 480px;
+}
+
+.feature-book {
+  width: 320px;
+  margin-top: 40px;
+  animation: float 4s ease-in-out infinite;
+}
+
+/* RIGHT */
+.feature-right {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.prompt-box {
+  width: 380px;
+  background: #fff;
+  padding: 28px;
+  border-radius: 20px;
+  box-shadow: 0 30px 60px rgba(0,0,0,0.15);
   position: relative;
-  width: 260px;
+  overflow: hidden;
 }
 
-.book-cards img {
-  width: 220px;
+/* Book throw */
+.book-throw {
+  font-size: 48px;
   position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: throwBook 3s infinite;
+}
+
+@keyframes throwBook {
+  0% { top: -60px; opacity: 0; }
+  30% { top: 20px; opacity: 1; }
+  60% { top: 20px; opacity: 1; }
+  100% { top: 120px; opacity: 0; }
+}
+
+/* Prompt input */
+.prompt-box input {
+  width: 100%;
+  margin-top: 60px;
+  padding: 14px;
   border-radius: 12px;
-  box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+  border: 1px solid #d1d5db;
+  font-size: 16px;
 }
 
-.book1 { transform: rotate(-10deg); left: 0; }
-.book2 { transform: rotate(0deg); left: 30px; }
-.book3 { transform: rotate(10deg); left: 60px; }
-
-.summary-box {
-  background: white;
-  padding: 24px;
-  border-radius: 16px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.12);
-  width: 360px;
-  animation: pulse 2.5s infinite;
+/* Summary animation */
+.summary-output {
+  margin-top: 24px;
+  font-size: 15px;
 }
 
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 rgba(79,70,229,0.4); }
-  50% { box-shadow: 0 0 30px rgba(79,70,229,0.4); }
-  100% { box-shadow: 0 0 0 rgba(79,70,229,0.4); }
+.loading {
+  color: #4f46e5;
+  animation: blink 1.5s infinite;
 }
 
+.result {
+  display: none;
+  color: #059669;
+  font-weight: 600;
+}
+
+@keyframes blink {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ---------------- CONTACT ---------------- */
 .contact-form {
   max-width: 420px;
+  margin: auto;
 }
 
 .contact-form input,
@@ -168,20 +225,23 @@ section p {
 }
 
 .contact-form button {
-  padding: 12px 30px;
+  width: 100%;
+  padding: 12px;
   border-radius: 20px;
-  border: none;
   background: #4f46e5;
-  color: white;
+  color: #fff;
+  border: none;
   cursor: pointer;
 }
 
+/* ---------------- FOOTER ---------------- */
 footer {
   text-align: center;
   padding: 24px;
   background: rgba(255,255,255,0.6);
   color: #6b7280;
 }
+
 </style>
 </head>
 
@@ -216,20 +276,33 @@ footer {
   </p>
 </section>
 
-<section id="features" class="features">
-  <div class="book-cards">
-    <img src="../Image/book.jpg" class="book1">
-    <img src="../Image/book.jpg" class="book2">
-    <img src="../Image/book.jpg" class="book3">
+<section id="features" class="features-section">
+  <!-- LEFT SIDE -->
+  <div class="feature-left">
+    <h2>Smart AI Features</h2>
+    <p>
+      Drop a book, enter your prompt, and let AI instantly convert
+      long content into meaningful summaries.
+    </p>
+
+    <img src="../Image/sideBook.png" class="feature-book" alt="Book Feature">
   </div>
 
-  <div class="summary-box">
-    <h3>AI Summary</h3>
-    <p>📘 Book uploaded…</p>
-    <p>🤖 Generating summary…</p>
-    <p>✅ Summary ready!</p>
+  <!-- RIGHT SIDE -->
+  <div class="feature-right">
+    <div class="prompt-box">
+      <div class="book-throw">📘</div>
+
+      <input type="text" placeholder="Enter your prompt..." readonly>
+
+      <div class="summary-output">
+        <p class="loading">🤖 Generating summary...</p>
+        <p class="result">✅ Summary ready in seconds!</p>
+      </div>
+    </div>
   </div>
 </section>
+
 
 <section id="contact">
   <h2>Contact</h2>
@@ -244,6 +317,18 @@ footer {
 <footer>
   © 2025 AI Book Summarizer. All rights reserved.
 </footer>
+
+<script>
+  setInterval(() => {
+    document.querySelector(".loading").style.display = "block";
+    document.querySelector(".result").style.display = "none";
+
+    setTimeout(() => {
+      document.querySelector(".loading").style.display = "none";
+      document.querySelector(".result").style.display = "block";
+    }, 2000);
+  }, 4000);
+</script>
 
 </body>
 </html>

@@ -7,9 +7,6 @@ from utils.database import update_book_text, update_book_status
 from bson import ObjectId
 
 
-# -------------------------------------------------------------------
-# 1. TXT Extraction
-# -------------------------------------------------------------------
 def extract_text_from_txt(file_path):
     try:
         # Try UTF-8 first
@@ -27,9 +24,6 @@ def extract_text_from_txt(file_path):
             return {"success": False, "error": "Unable to read TXT file."}
 
 
-# -------------------------------------------------------------------
-# 2. PDF Extraction
-# -------------------------------------------------------------------
 def extract_text_from_pdf(file_path):
     try:
         text_output = []
@@ -51,9 +45,6 @@ def extract_text_from_pdf(file_path):
         return {"success": False, "error": f"PDF extraction failed: {str(e)}"}
 
 
-# -------------------------------------------------------------------
-# 3. DOCX Extraction
-# -------------------------------------------------------------------
 def extract_text_from_docx(file_path):
     try:
         document = docx.Document(file_path)
@@ -73,10 +64,6 @@ def extract_text_from_docx(file_path):
     except Exception as e:
         return {"success": False, "error": f"DOCX extraction failed: {str(e)}"}
 
-
-# -------------------------------------------------------------------
-# 4. UNIFIED Extractor (Detect by extension)
-# -------------------------------------------------------------------
 def extract_text(file_path):
     ext = file_path.split(".")[-1].lower()
 
@@ -90,9 +77,6 @@ def extract_text(file_path):
         return {"success": False, "error": "Unsupported file type."}
 
 
-# -------------------------------------------------------------------
-# 5. PROCESS BOOK: Extract → Count → Save → Update Status
-# -------------------------------------------------------------------
 def process_book(book_id, file_path):
     """
     Runs full extraction pipeline:
