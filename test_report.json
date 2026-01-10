@@ -1,0 +1,36 @@
+{
+  "timestamp": "2026-01-11T00:32:07.729602",
+  "overall": {
+    "total_tests": 19,
+    "passed": 12,
+    "failed": 7,
+    "success_rate": 63.1578947368421
+  },
+  "categories": {
+    "Unit Tests": {
+      "total": 13,
+      "passed": 8,
+      "failed": 5,
+      "success_rate": 61.53846153846154
+    },
+    "Integration Tests": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "success_rate": 0
+    },
+    "Security Tests": {
+      "total": 4,
+      "passed": 2,
+      "failed": 2,
+      "success_rate": 50.0
+    },
+    "Performance Tests": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0,
+      "success_rate": 100.0
+    }
+  },
+  "requirements_met": false
+}

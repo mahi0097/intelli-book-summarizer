@@ -1,160 +1,264 @@
-# backend/auth.py
+# backend/auth.py - COMPLETE UPDATED VERSION
+import os
 import re
-import time
-import logging
-from datetime import datetime
 import bcrypt
-from pymongo.errors import DuplicateKeyError, PyMongoError
+import jwt
+from datetime import datetime, timedelta
+from bson import ObjectId
 
-from utils.database import connect_db
+# =========================
+# JWT CONFIG
+# =========================
+SECRET_KEY = os.getenv("JWT_SECRET", "change-this-secret-in-production")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_HOURS = 24
 
-BCRYPT_ROUNDS = 12
-MAX_LOGIN_ATTEMPTS = 5
-LOGIN_WINDOW_SECONDS = 15 * 60
-_login_attempts = {}
 
-logger = logging.getLogger("backend.auth")
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-    logger.addHandler(handler)
-logger.setLevel(logging.INFO)
+# =========================
+# PASSWORD HELPERS
+# =========================
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
-EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
-def db():
-    return connect_db()
+def verify_password(password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(password.encode(), hashed_password.encode())
 
-def _cleanup_attempts(identifier: str):
-    now = time.time()
-    window_start = now - LOGIN_WINDOW_SECONDS
-    attempts = _login_attempts.get(identifier, [])
-    attempts = [ts for ts in attempts if ts >= window_start]
-    if attempts:
-        _login_attempts[identifier] = attempts
-    else:
-        _login_attempts.pop(identifier, None)
 
-def _record_failed_attempt(identifier: str):
-    now = time.time()
-    attempt = _login_attempts.get(identifier, [])
-    attempt.append(now)
-    _login_attempts[identifier] = attempt
-    _cleanup_attempts(identifier)
+# =========================
+# JWT HELPERS
+# =========================
+def create_token(user_id, email, role="user"):
+    payload = {
+        "user_id": str(user_id),
+        "email": email,
+        "role": role,
+        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=JWT_ALGORITHM)
 
-def _is_rate_limited(identifier: str) -> bool:
-    _cleanup_attempts(identifier)
-    return len(_login_attempts.get(identifier, [])) >= MAX_LOGIN_ATTEMPTS
 
-def _validate_registration_input(name: str, email: str, password: str):
-    errors = []
-    if not name or len(name.strip()) < 2:
-        errors.append("Name must be at least 2 characters.")
-    if not re.match(r"^[A-Za-z ]+$", name.strip()):
-        errors.append("Name must contain only letters and spaces.")
-    if not email or not EMAIL_REGEX.match(email):
-        errors.append("Invalid email format.")
-    if not password or len(password) < 8:
-        errors.append("Password must be at least 8 characters long.")
-    if not re.search(r"[A-Z]", password):
-        errors.append("Password must contain at least 1 uppercase letter.")
-    if not re.search(r"[a-z]", password):
-        errors.append("Password must contain at least 1 lowercase letter.")
-    if not re.search(r"[0-9]", password):
-        errors.append("Password must contain at least 1 digit.")
-    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-        errors.append("Password must contain at least 1 special character.")
-    return errors
-
-def register_user(fullName: str, email: str, password: str):
+def verify_token(token):
     try:
-        errors = _validate_registration_input(fullName or "", email or "", password or "")
-        if errors:
-            return {"success": False, "message": "Validation failed: " + "; ".join(errors), "user_id": None}
-
-        users = db().users
-        password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=BCRYPT_ROUNDS)).decode("utf-8")
-        user_doc = {
-            "name": fullName.strip(),
-            "email": email.strip().lower(),
-            "password_hash": password_hash,
-            "role": "user",
-            "created_at": datetime.utcnow()
-        }
-        try:
-            result = users.insert_one(user_doc)
-            return {"success": True, "message": "User registered", "user_id": str(result.inserted_id)}
-        except DuplicateKeyError:
-            return {"success": False, "message": "Email already registered", "user_id": None}
-        except PyMongoError:
-            return {"success": False, "message": "Database error", "user_id": None}
-    except Exception as e:
-        logger.exception("register_user error")
-        return {"success": False, "message": "Internal error", "user_id": None}
-
-def _validate_login_input(email: str, password: str):
-    if not email or not EMAIL_REGEX.match(email):
-        return False, "Invalid credentials."
-    if not password:
-        return False, "Invalid credentials."
-    return True, None
-
-def login_user(email: str, password: str, identifier: str = None):
-    try:
-        ok, err = _validate_login_input(email or "", password or "")
-        if not ok:
-            return {"success": False, "message": "Invalid credentials", "user": None}
-
-        ident = (identifier or email or "").lower()
-        if _is_rate_limited(ident):
-            return {"success": False, "message": "Too many failed attempts. Try later.", "user": None}
-
-        users = db().users
-        user = users.find_one({"email": email.strip().lower()})
-        if not user:
-            _record_failed_attempt(ident)
-            return {"success": False, "message": "Invalid credentials", "user": None}
-
-        stored_hash = user.get("password_hash", "")
-        try:
-            matches = bcrypt.checkpw(password.encode("utf-8"), stored_hash.encode("utf-8"))
-        except Exception:
-            _record_failed_attempt(ident)
-            return {"success": False, "message": "Invalid credentials", "user": None}
-
-        if not matches:
-            _record_failed_attempt(ident)
-            return {"success": False, "message": "Invalid credentials", "user": None}
-
-        if ident in _login_attempts:
-            _login_attempts.pop(ident, None)
-
-        user_safe = {
-            "user_id": str(user.get("_id")),
-            "name": user.get("name"),
-            "email": user.get("email"),
-            "role": user.get("role", "user"),
-            "created_at": user.get("created_at")
-        }
-        return {"success": True, "message": "Login successful", "user": user_safe}
-    except Exception:
-        logger.exception("login error")
-        return {"success": False, "message": "Internal error", "user": None}
-
-def is_logged_in(st_session) -> bool:
-    return bool(st_session.get("logged_in"))
-
-def get_current_user(st_session):
-    if not is_logged_in(st_session):
+        return jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError:
         return None
+    except jwt.InvalidTokenError:
+        return None
+
+
+# =========================
+# VALIDATION
+# =========================
+def is_valid_email(email):
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+
+# =========================
+# REGISTER USER
+# =========================
+def register_user(name, email, password, role="user"):
+    from utils.database import db, create_user
+
+    if not is_valid_email(email):
+        return {
+            "success": False,
+            "message": "Invalid email format"
+        }
+
+    if db.users.find_one({"email": email.lower()}):
+        return {
+            "success": False,
+            "message": "Email already registered"
+        }
+
+    try:
+        user_id = create_user(name, email, password, role)
+        return {
+            "success": True,
+            "user_id": str(user_id)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": str(e)
+        }
+
+
+# =========================
+# LOGIN USER
+# =========================
+def login_user(email, password):
+    from utils.database import get_user_by_email
+
+    user = get_user_by_email(email)
+
+    if not user:
+        return {
+            "success": False,
+            "message": "Invalid email or password"
+        }
+
+    if not verify_password(password, user["password_hash"]):
+        return {
+            "success": False,
+            "message": "Invalid email or password"
+        }
+
+    token = create_token(user["_id"], user["email"], user.get("role", "user"))
+
     return {
-        "user_id": st_session.get("user_id"),
-        "name": st_session.get("user_name"),
-        "email": st_session.get("user_email"),
-        "role": st_session.get("user_role")
+        "success": True,
+        "user": {
+            "user_id": str(user["_id"]),
+            "id": str(user["_id"]),  # Added for compatibility
+            "name": user.get("name", user["email"].split("@")[0]),
+            "email": user["email"],
+            "role": user.get("role", "user"),
+            "token": token
+        }
     }
 
-def logout(st_session):
-    for k in ["logged_in", "user_id", "user_name", "user_email", "user_role"]:
-        st_session.pop(k, None)
-    return {"success": True}
+
+# =========================
+# SESSION HELPERS (STREAMLIT)
+# =========================
+def set_user_session(session, user):
+    session["logged_in"] = True
+    session["user_id"] = user["user_id"]
+    session["username"] = user["email"]
+    session["role"] = user.get("role", "user")
+    session["token"] = user.get("token")
+    session["last_activity"] = datetime.utcnow()
+
+
+def clear_user_session(session):
+    session.clear()
+    session["logged_in"] = False
+
+
+# =========================
+# NEW FUNCTIONS FOR APP.PY COMPATIBILITY
+# =========================
+def get_current_user(session_state):
+    """
+    Get current user from session state
+    Used by app.py
+    """
+    if not session_state.get("logged_in", False):
+        return None
+    
+    try:
+        from utils.database import get_user_by_id
+        
+        user_id = session_state.get("user_id")
+        if not user_id:
+            return None
+        
+        user = get_user_by_id(user_id)
+        if user:
+            # Ensure all required fields
+            user['_id'] = str(user.get('_id', ''))
+            user['id'] = user['_id']  # Add 'id' field for compatibility
+            user['name'] = user.get('name', 'User')
+            user['email'] = user.get('email', '')
+            user['role'] = user.get('role', 'user')
+            return user
+        
+        return None
+    except Exception as e:
+        print(f"Error getting current user: {e}")
+        return None
+
+
+def is_logged_in(session_state):
+    """
+    Check if user is logged in
+    Used by app.py
+    """
+    # Basic check
+    if not session_state.get("logged_in", False):
+        return False
+    
+    # Check if user_id exists
+    if not session_state.get("user_id"):
+        return False
+    
+    # Optional: Check session timeout
+    last_activity = session_state.get("last_activity")
+    if last_activity:
+        time_diff = (datetime.utcnow() - last_activity).total_seconds()
+        if time_diff > 8 * 3600:  # 8 hours timeout
+            # Clear session
+            for key in ["logged_in", "user_id", "username", "role", "token", "last_activity"]:
+                if key in session_state:
+                    session_state[key] = None
+            return False
+    
+    return True
+
+
+# =========================
+# TOKEN VERIFICATION
+# =========================
+def verify_user_token(token):
+    """
+    Verify JWT token and extract user info
+    """
+    try:
+        decoded = verify_token(token)
+        if decoded:
+            return {
+                "user_id": decoded.get("user_id"),
+                "email": decoded.get("email"),
+                "role": decoded.get("role", "user")
+            }
+        return None
+    except Exception as e:
+        print(f"Token verification error: {e}")
+        return None
+
+
+# =========================
+# ADMIN CHECK
+# =========================
+def is_admin(session_state):
+    """
+    Check if current user is admin
+    """
+    user = get_current_user(session_state)
+    return user and user.get("role") == "admin"
+
+
+# =========================
+# USER MANAGEMENT
+# =========================
+def update_user_profile(user_id, updates):
+    """
+    Update user profile information
+    """
+    try:
+        from utils.database import db
+        
+        # Filter allowed updates
+        allowed_updates = {"name", "settings"}
+        filtered_updates = {k: v for k, v in updates.items() if k in allowed_updates}
+        
+        if not filtered_updates:
+            return {"success": False, "message": "No valid updates provided"}
+        
+        user_obj_id = ObjectId(user_id) if isinstance(user_id, str) else user_id
+        
+        result = db.users.update_one(
+            {"_id": user_obj_id},
+            {"$set": filtered_updates}
+        )
+        
+        if result.modified_count > 0:
+            return {"success": True, "message": "Profile updated successfully"}
+        else:
+            return {"success": False, "message": "No changes made"}
+            
+    except Exception as e:
+        return {"success": False, "message": str(e)}

@@ -3,7 +3,7 @@ import time
 from bson import ObjectId
 from datetime import datetime
 from backend.preprocessing import preprocess_for_summarization
-from backend.models.summarizer import Summarizer
+from backend.models.summarizer import FastSummarizer
 from utils.database import (
     get_book_by_id,
     save_summary,
@@ -114,11 +114,11 @@ async def generate_summary(book_id, user_id, summary_options):
         update_progress(book_id, "Loading AI model...", 35)
         
         try:
-            summarizer = Summarizer("sshleifer/distilbart-cnn-12-6")
+            summarizer = FastSummarizer("distilbart")
         except Exception as e:
             print(f"Primary model failed: {e}")
             try:
-                summarizer = Summarizer("facebook/bart-large-cnn")
+                summarizer = FastSummarizer("distilbart")
             except Exception as e2:
                 print(f"Fallback model failed: {e2}")
                 # Use a very simple fallback
@@ -134,7 +134,7 @@ async def generate_summary(book_id, user_id, summary_options):
                     def post_process_summary(self, summary):
                         return summary.strip()
                 
-                summarizer = SimpleSummarizer()
+                summarizer = FastSummarizer("distilbart")
         
         # Configure length
         length = summary_options.get("length", "medium")

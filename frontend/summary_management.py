@@ -7,7 +7,8 @@ from utils.database import (
     delete_summary,
     restore_summary,
     set_active_summary_version,
-    get_summary_by_id
+    get_summary_by_id,
+    db
 )
 
 def summary_management_page():

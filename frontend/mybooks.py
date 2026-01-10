@@ -6,7 +6,7 @@ from datetime import datetime
 from bson import ObjectId
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from backend.auth import is_logged_in, get_current_user
+from frontend.helper import is_logged_in, get_current_user
 from utils.database import db, delete_book_and_summary
 from backend.summary_orchestrator import generate_summary
 import asyncio
@@ -21,13 +21,18 @@ def run_async(coro):
     return loop.run_until_complete(coro)
 
 def mybooks_page():
-    if not is_logged_in(st.session_state):
+    if not is_logged_in():
         st.error("Login required")
         st.session_state.page = "login"
         st.rerun()
         return
     
-    user = get_current_user(st.session_state)
+    user = get_current_user()
+    if not user or "user_id" not in user:
+        st.error("Invalid user session. Please login again.")
+        st.session_state.page = "login"
+        st.rerun()
+        return
     st.title("📚 My Books")
     
     # DEBUG: Show user info to check format

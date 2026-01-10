@@ -8,7 +8,8 @@ from bson import ObjectId
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from backend.auth import is_logged_in, get_current_user, logout as backend_logout
+from frontend.helper import is_logged_in, get_current_user, clear_user_session
+
 from backend.text_extractor import process_book
 from backend.summary_orchestrator import generate_summary
 from utils.database import (
@@ -17,6 +18,9 @@ from utils.database import (
     db,
     delete_book_and_summary
 )
+from utils.error_handler import error_handler, FileProcessingError, RateLimitError
+from utils.validators import InputValidator
+from frontend.error_ui import safe_execute, display_error_ui
 
 UPLOAD_DIR = "data/uploads/"
 MAX_FILE_SIZE_MB = 10
@@ -30,10 +34,11 @@ def top_header(user):
 
     with col3:
         st.write(f"👤 **{user['name']}**")
-        if st.button("Logout"):
-            backend_logout(st.session_state)
+        if st.button("🚪 Logout"):
+            clear_user_session()
             st.session_state.page = "login"
             st.rerun()
+
 
 
 def sidebar_nav():
@@ -59,11 +64,12 @@ def sidebar_nav():
 
 
 def require_login():
-    if not is_logged_in(st.session_state):
+    if not is_logged_in():
+
         st.error("You must log in first.")
         st.session_state.page = "login"
         st.rerun()
-    return get_current_user(st.session_state)
+    return get_current_user()
 
 
 def validate_file(uploaded_file):
@@ -81,7 +87,7 @@ def validate_file(uploaded_file):
     return None
 
 
-def upload_page():
+def show_upload_page():
     user = require_login()
     top_header(user)
     sidebar_nav()
