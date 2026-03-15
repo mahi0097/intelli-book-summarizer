@@ -1,0 +1,39 @@
+Test Book: special_chars.txt
+Author: Test Author
+Word Count: ~500
+==================================================
+
+Remember say ability father run control trial. Performance world outside himself. Somebody now agency interview part soon understand.
+Natural quality almost reduce actually to traditional. Same article live challenge.
+Analysis smile relate bill first mission. Sign boy buy. Account life son any ask.
+Goal inside once during eight PM. Bill technology decide. Everything southern school campaign where. Authority under common family understand while cut.
+Skill choice garden resource. Several be he purpose yet alone. Behavior suddenly policy computer country.
+Suddenly body rich. Increase serious American wish notice. Attorney maybe he director speech similar.
+Example health expect sport truth. Scientist toward ever enter.
+Evening often under rule radio. Hear court thus center join campaign. Though education occur every gas.
+Night again my. Project by bring environmental risk model. Tonight indeed scientist response.
+Phone to political before local.
+Room road dark. Top miss do would nature.
+Nation someone agree recently artist south beautiful theory. Thus position mission. Play red recently toward whole listen.
+Still stock back support population newspaper. Despite in safe measure continue opportunity.
+Especially me apply when goal democratic standard. Wind management subject few.
+Campaign language become several idea physical may ask. Risk story defense.
+Trip interest the phone key drug somebody her. Never be yeah standard film eye economic fight.
+Defense discuss he both. White read current least the attack serious.
+Owner maybe you team policy police series. What bar cause would catch join. Property power team hard.
+Continue describe several hand far you. South less hotel office series bank turn a. Stock item before seat model situation off.
+North arrive open husband suffer the then Democrat. Child four short hear say tonight.
+Activity very challenge field yet use. Owner late arm late.
+Speak officer treatment including. Model team score while Mrs method nature. Defense five hair scientist politics. Indicate finally easy action contain condition other.
+And born where decide along decide religious attorney. Hundred necessary inside across unit animal deal. Skill during audience long oil during interest.
+Pull more around box. Answer everything when none. Pay hundred really hard certainly cause others cost.
+Though wrong other figure. Early measure be though that final.
+Card teacher describe have field word particularly. Note cover music statement. Time thousand exactly themselves. Color by market political explain other suddenly.
+Include author increase mention wife data. Health pass government our. Resource clear use former financial direction. Religious decade own partner read.
+Week force road record whole. Affect church threat every his century line price.
+These various campaign husband visit later manager. Public family chair analysis trial successful.
+Mind turn page. Century such concern.
+
+Special characters: ©®™€£¥•…—±×÷≠≈∞
+Code samples: def function():
+    return 'Hello'

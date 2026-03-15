@@ -1,40 +1,19 @@
-# Environment
-.env
-.env.*
-*.env
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.venv/
-venv/
-
-# Data
-data/
-uploads/
-cache/
-
-# OS junk
-.DS_Store
-Thumbs.db
-
-# Logs
-logs/
-*.log
 # Secrets
 .env
 .env.*
 *.env
 
-# Python/cache
+# Python
 .venv/
 venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 .pytest_cache/
 .coverage
+htmlcov/
+coverage.xml
 
 # Runtime data
 logs/
@@ -44,10 +23,14 @@ temp/
 exports/
 cache/
 
+# Keep committed test fixtures/generators available to CI
+!tests/data/
+!tests/data/**
+
 # Test artifacts
 *_test_results.json
 test_report.json
 
-# Local OS files
+# OS files
 .DS_Store
 Thumbs.db
