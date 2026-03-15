@@ -217,14 +217,22 @@ class FastSummarizer:
             return ""
 
         cleaned_text = re.sub(r"\s+", " ", text).strip()
+        original_words = cleaned_text.split()
+        original_word_count = len(original_words)
         sentences = re.split(r"(?<=[.!?])\s+", cleaned_text)
         sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
 
+        # Keep fallback output meaningfully shorter than the source when possible.
+        summary_cap = max_words
+        if original_word_count > 1:
+            summary_cap = min(summary_cap, original_word_count - 1)
+        summary_cap = max(summary_cap, 1)
+
         if not sentences:
-            words = cleaned_text.split()
-            if not words:
+            if not original_words:
                 return ""
-            fallback_words = words[: max(min(max_words, len(words)), min(120, len(words)))]
+            fallback_target = min(summary_cap, max(min_words, min(120, summary_cap)))
+            fallback_words = original_words[:fallback_target]
             summary = " ".join(fallback_words).strip()
             if summary and summary[-1] not in ".!?":
                 summary += "."
@@ -233,7 +241,7 @@ class FastSummarizer:
         selected = []
         word_total = 0
         target_words = max(min_words, 80)
-        hard_cap = max(max_words, target_words)
+        hard_cap = max(1, min(summary_cap, max(max_words, target_words)))
 
         for sentence in sentences:
             sentence_words = len(sentence.split())
