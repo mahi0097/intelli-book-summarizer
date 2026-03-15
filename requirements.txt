@@ -17,7 +17,6 @@ pytest-cov
 pytest-mock
 pytest-asyncio
 requests-mock
-httpx-mock
 faker
 factory-boy
 

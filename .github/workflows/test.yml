@@ -34,7 +34,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest pytest-cov pytest-mock pytest-asyncio
-        pip install requests-mock httpx-mock faker
+        pip install requests-mock faker
     
     - name: Generate test data
       run: python tests/data/generate_test_files.py
