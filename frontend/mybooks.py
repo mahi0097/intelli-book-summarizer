@@ -11,6 +11,110 @@ from utils.database import db, delete_book_and_summary
 from backend.summary_orchestrator import generate_summary
 import asyncio
 
+def load_mybooks_css():
+    st.markdown("""
+    <style>
+    /* ===============================
+       COLOR THEME
+    =============================== */
+    :root {
+        --primary: #2563eb;
+        --light-bg: #f8fafc;
+        --dark-bg: #0f172a;
+        --card-light: #ffffff;
+        --card-dark: #1e293b;
+        --border-light: #e5e7eb;
+        --border-dark: #334155;
+    }
+
+    /* Page background */
+    .stApp {
+        background: #eef6ff;
+    }
+
+    /* Auto dark mode */
+    @media (prefers-color-scheme: dark) {
+        .stApp {
+            background: var(--dark-bg);
+            color: #e5e7eb;
+        }
+    }
+
+    /* Main cards / expanders */
+    [data-testid="stExpander"],
+    [data-testid="stMetric"],
+    .stTextArea textarea {
+        background: var(--card-light);
+        border-radius: 14px;
+        border: 1px solid var(--border-light);
+        padding: 14px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.06);
+        transition: all 0.3s ease;
+        animation: fadeUp 0.4s ease;
+    }
+
+    /* Dark mode cards */
+    @media (prefers-color-scheme: dark) {
+        [data-testid="stExpander"],
+        [data-testid="stMetric"],
+        .stTextArea textarea {
+            background: var(--card-dark);
+            border-color: var(--border-dark);
+        }
+    }
+
+    /* Hover animation */
+    [data-testid="stExpander"]:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 18px 40px rgba(37,99,235,0.25);
+    }
+
+    /* Buttons */
+    .main .stButton > button {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: white;
+        border-radius: 12px;
+        font-weight: 600;
+        border: none;
+        transition: all 0.25s ease;
+    }
+
+    .main .stButton > button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 30px rgba(37,99,235,0.4);
+    }
+
+    /* Metrics */
+    [data-testid="stMetric"] {
+        padding: 18px;
+    }
+
+    /* Progress bar */
+    .stProgress > div > div {
+        background-color: #2563eb;
+    }
+    /* Divider */
+    .main hr {
+        border: none;
+        height: 1px;
+        background: linear-gradient(to right, transparent, #93c5fd, transparent);
+    }
+
+    /* Animation */
+    @keyframes fadeUp {
+        from {
+            opacity: 0;
+            transform: translateY(12px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
 def run_async(coro):
     """Helper to run async functions"""
     try:
@@ -21,6 +125,7 @@ def run_async(coro):
     return loop.run_until_complete(coro)
 
 def mybooks_page():
+    load_mybooks_css()
     if not is_logged_in():
         st.error("Login required")
         st.session_state.page = "login"
@@ -35,11 +140,6 @@ def mybooks_page():
         return
     st.title("📚 My Books")
     
-    # DEBUG: Show user info to check format
-    st.sidebar.subheader("🔍 Debug Info")
-    st.sidebar.write(f"User ID type: {type(user['user_id'])}")
-    st.sidebar.write(f"User ID value: {user['user_id']}")
-    
     # Try different user_id formats
     try:
         # First try: user_id as ObjectId
@@ -49,13 +149,9 @@ def mybooks_page():
             # Try to convert string to ObjectId
             user_id_query = ObjectId(user["user_id"])
         
-        st.sidebar.success("✓ User ID converted to ObjectId")
-        
     except Exception as e:
-        st.sidebar.error(f"✗ User ID conversion failed: {e}")
         # Fallback: use as string
         user_id_query = user["user_id"]
-        st.sidebar.warning("Using user_id as string")
     
     # Add search and filter options
     col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
@@ -92,27 +188,11 @@ def mybooks_page():
     if status_filter != "All":
         query["status"] = status_filter
     
-    # DEBUG: Show query
-    st.sidebar.write("📋 Query:", query)
-    
     try:
         # Get books with sorting
         books = list(db.books.find(query).sort("uploaded_at", -1))
-        
-        # DEBUG: Show count
-        st.sidebar.write(f"📊 Found {len(books)} books")
-        
-        if books:
-            # Show first book as sample for debugging
-            st.sidebar.write("📖 Sample book:", {
-                "title": books[0].get("title"),
-                "status": books[0].get("status"),
-                "user_id": str(books[0].get("user_id"))[:10] + "...",
-                "is_temporary": books[0].get("is_temporary", False)
-            })
     except Exception as e:
         st.error(f"Database error: {str(e)}")
-        st.sidebar.error(f"Query error: {e}")
         books = []
     
     # Check if we need to regenerate a summary
@@ -417,7 +497,6 @@ def mybooks_page():
         4. **Refresh the page**: Click the refresh button
         
         **Debug steps:**
-        - Look at the debug info in the sidebar
         - Check if books exist in the Upload History page
         - Verify the user_id in your session matches database
         """)

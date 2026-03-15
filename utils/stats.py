@@ -18,5 +18,7 @@ def calculate_summary_stats(summary_text: str, original_text: str) -> dict:
     return {
         "original_word_count": original_words,
         "summary_word_count": summary_words,
+        "original_length": original_words,
+        "summary_length": summary_words,
         "compression_ratio": compression_ratio,
     }

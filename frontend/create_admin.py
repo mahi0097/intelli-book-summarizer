@@ -1,29 +1,36 @@
-# create_admin.py
+# frontend/create_admin.py
+
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from datetime import datetime
 
-from utils.database import create_user, get_db
+# ✅ Add project root to PYTHONPATH
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PROJECT_ROOT)
 
-print("👑 Creating admin user...")
+from utils.database import get_db
 
-# Create admin user
-admin_id = create_user(
-    name="System Administrator",
-    email="admin@test.com",  # You can change this
-    password="admin123",     # You can change this
-    role="admin"
-)
+def create_default_admin():
+    db = get_db()
 
-print(f"✅ Admin user created!")
-print(f"📧 Email: admin@test.com")
-print(f"🔑 Password: admin123")
-print(f"🆔 User ID: {admin_id}")
+    admin_email = "admin@example.com"
 
-# Verify it was created
-db = get_db()
-user = db.users.find_one({"email": "admin@test.com"})
-if user:
-    print(f"✅ Verified in database. Role: {user.get('role')}")
-else:
-    print("❌ User not found in database")
+    # Check if admin already exists
+    existing_admin = db.users.find_one({"email": admin_email})
+    if existing_admin:
+        print("⚠️ Admin already exists")
+        return
+
+    db.users.insert_one({
+        "name": "Admin",
+        "email": admin_email,
+        "password": "admin123",  # ⚠️ hash in real app
+        "role": "admin",
+        "is_active": True,
+        "created_at": datetime.now()
+    })
+
+    print("✅ Default admin created successfully")
+
+if __name__ == "__main__":
+    create_default_admin()

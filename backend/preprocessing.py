@@ -1,13 +1,19 @@
 import re
 import nltk
-from langdetect import detect
+try:
+    from langdetect import detect
+except ImportError:
+    def detect(_text):
+        return "en"
 from nltk.tokenize import sent_tokenize
 
-# Ensure punkt is available
+# Check whether punkt is available. If not, segment_sentences will fall back
+# to simpler splitting without trying to download data at import time.
 try:
     nltk.data.find("tokenizers/punkt")
+    HAS_PUNKT = True
 except LookupError:
-    nltk.download("punkt")
+    HAS_PUNKT = False
 
 
 # --------------------------------------------------
@@ -34,8 +40,9 @@ def clean_text(
         text = re.sub(r"\n.*\t.*\t.*\n", "\n", text)
 
     if normalize_whitespace:
-        text = re.sub(r"\n{2,}", "\n", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
         text = re.sub(r"[ \t]+", " ", text)
+        text = re.sub(r"\n +\n", "\n\n", text)
 
     return text.strip()
 
@@ -90,6 +97,17 @@ def calculate_text_stats(text):
 def chunk_text(text, chunk_size=1000, min_chunk_words=120):
     sentences = segment_sentences(text)
 
+    if len(sentences) <= 1:
+        words = text.split()
+        return [
+            {
+                "chunk_id": idx + 1,
+                "text": " ".join(words[i:i + chunk_size]).strip()
+            }
+            for idx, i in enumerate(range(0, len(words), chunk_size))
+            if " ".join(words[i:i + chunk_size]).strip()
+        ]
+
     chunks = []
     current = []
     current_len = 0
@@ -130,8 +148,15 @@ def preprocess_for_summarization(
     normalize_whitespace=True,
     detect_language=True   # BOOLEAN FLAG
 ):
-    if not text or len(text.split()) < 80:
-        raise ValueError("Text too short for summarization")
+    if not text:
+        return {
+            "success": False,
+            "error": "Text too short for summarization",
+            "cleaned_text": "",
+            "language": "unknown",
+            "stats": {},
+            "chunks": []
+        }
 
     cleaned_text = clean_text(
         text,
@@ -140,21 +165,35 @@ def preprocess_for_summarization(
         normalize_whitespace
     )
 
-    language = (
-        detect_language_func(cleaned_text)
-        if detect_language
-        else "unknown"
-    )
+    if len(cleaned_text.split()) < 80:
+        return {
+            "success": True,
+            "cleaned_text": cleaned_text,
+            "language": detect_language_func(cleaned_text) if detect_language else "unknown",
+            "stats": calculate_text_stats(cleaned_text),
+            "chunks": [cleaned_text]
+        }
+
+    language = detect_language_func(cleaned_text) if detect_language else "unknown"
 
     stats = calculate_text_stats(cleaned_text)
     chunks = chunk_text(cleaned_text, chunk_size)
 
     if not chunks:
-        raise ValueError("Chunking failed: no valid chunks created")
+        return {
+            "success": False,
+            "error": "Chunking failed: no valid chunks created",
+            "cleaned_text": cleaned_text,
+            "language": language,
+            "stats": stats,
+            "chunks": []
+        }
 
     return {
+        "success": True,
         "cleaned_text": cleaned_text,
         "language": language,
         "stats": stats,
-        "chunks": chunks
+        "chunks": [chunk["text"] for chunk in chunks],
+        "chunk_metadata": chunks
     }

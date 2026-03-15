@@ -27,9 +27,8 @@ def test_admin_access():
     
     print(f"\n2. Testing login for: {admin_email}")
     
-    # Simulate login
-    session_state = {}
-    result = login_user(admin_email, test_password, session_state)
+    # Test login using the current auth API
+    result = login_user(admin_email, test_password)
     
     if result["success"]:
         print(f"   ✅ Login successful!")
@@ -45,14 +44,14 @@ def test_admin_access():
             print("\n3. ❌ User is not admin despite admin role in DB")
             print("   Check login_user() function in backend/auth.py")
     else:
-        print(f"   ❌ Login failed: {result.get('error')}")
+        print(f"   ❌ Login failed: {result.get('message')}")
         print("\n   Try creating admin with: python create_admin_user.py")
     
     print("\n" + "=" * 60)
     print("🚀 To access admin dashboard:")
     print("1. Start your app: streamlit run app.py")
     print("2. Login with admin credentials")
-    print("3. Look for '🔧 Admin Panel' in sidebar")
+    print("3. Look for '🛡 Admin Dashboard' in sidebar")
     print("4. Click it to access admin dashboard")
 
 if __name__ == "__main__":

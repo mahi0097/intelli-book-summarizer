@@ -22,6 +22,106 @@ from utils.error_handler import error_handler, FileProcessingError, RateLimitErr
 from utils.validators import InputValidator
 from frontend.error_ui import safe_execute, display_error_ui
 
+def load_upload_css():
+    st.markdown("""
+    <style>
+    /* ===============================
+       COLORS
+    =============================== */
+    :root {
+        --primary: #2563eb;
+        --bg-light: #f8fafc;
+        --bg-dark: #0f172a;
+        --card-light: #ffffff;
+        --card-dark: #1e293b;
+    }
+
+    /* Page background */
+    .stApp {
+        background: #eef6ff;
+    }
+    /* Dark mode auto */
+    @media (prefers-color-scheme: dark) {
+        .stApp {
+            background: var(--bg-dark);
+            color: #e5e7eb;
+        }
+    }
+
+    /* Upload cards / sections */
+    .upload-card,
+    [data-testid="stFileUploader"],
+    [data-testid="stExpander"],
+    [data-testid="stMetric"] {
+        background: var(--card-light);
+        border-radius: 14px;
+        padding: 16px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+        transition: all 0.3s ease;
+        animation: fadeUp 0.5s ease;
+    }
+
+    /* Dark mode cards */
+    @media (prefers-color-scheme: dark) {
+        .upload-card,
+        [data-testid="stFileUploader"],
+        [data-testid="stExpander"],
+        [data-testid="stMetric"] {
+            background: var(--card-dark);
+            border-color: #334155;
+        }
+    }
+
+    /* Hover animation */
+    [data-testid="stFileUploader"]:hover,
+    [data-testid="stExpander"]:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 18px 40px rgba(37,99,235,0.25);
+    }
+
+    /* Buttons */
+    .main .stButton > button {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: white;
+        border-radius: 12px;
+        font-weight: 600;
+        border: none;
+        transition: all 0.25s ease;
+    }
+
+    .main .stButton > button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 30px rgba(37,99,235,0.4);
+    }
+
+    /* Progress bar */
+    .stProgress > div > div {
+        background-color: #2563eb;
+    }
+
+    /* Divider */
+    .main hr {
+        border: none;
+        height: 1px;
+        background: linear-gradient(to right, transparent, #93c5fd, transparent);
+    }
+
+    /* Animation */
+    @keyframes fadeUp {
+        from {
+            opacity: 0;
+            transform: translateY(12px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
 UPLOAD_DIR = "data/uploads/"
 MAX_FILE_SIZE_MB = 10
 
@@ -88,9 +188,8 @@ def validate_file(uploaded_file):
 
 
 def show_upload_page():
+    load_upload_css()
     user = require_login()
-    top_header(user)
-    sidebar_nav()
 
     st.markdown("## 📤 Upload Book")
 

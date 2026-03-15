@@ -1,0 +1,298 @@
+/* frontend/css/auth_styles.css */
+/* BookBrief AI - Authentication Page Styles */
+
+/* Main container styling */
+.stApp {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    min-height: 100vh;
+}
+
+.main .block-container {
+    padding-top: 3rem !important;
+    padding-bottom: 3rem !important;
+    max-width: 500px !important;
+    margin: 0 auto !important;
+}
+
+/* Card styling for forms */
+section[data-testid="stForm"] {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(10px) !important;
+    border-radius: 20px !important;
+    padding: 3rem !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    animation: slideUp 0.6s ease-out !important;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Header styling */
+h1 {
+    text-align: center !important;
+    font-size: 2.5rem !important;
+    margin-bottom: 2rem !important;
+    background: linear-gradient(90deg, #667eea, #764ba2, #f093fb) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.5px !important;
+}
+
+h3 {
+    text-align: center !important;
+    color: #2d3748 !important;
+    font-weight: 600 !important;
+    margin-bottom: 2rem !important;
+    font-size: 1.5rem !important;
+}
+
+/* Input field styling */
+.stTextInput > div > div {
+    background: rgba(248, 250, 252, 0.8) !important;
+    border: 2px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    transition: all 0.3s ease !important;
+}
+
+.stTextInput > div > div:hover {
+    border-color: #c7d2fe !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+}
+
+.stTextInput > div > div > input {
+    color: #2d3748 !important;
+    font-size: 1rem !important;
+    padding: 0.75rem 1rem !important;
+}
+
+.stTextInput > div > div > input:focus {
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+}
+
+/* Placeholder styling */
+.stTextInput input::placeholder {
+    color: #94a3b8 !important;
+    opacity: 0.7 !important;
+}
+
+/* Labels */
+label {
+    color: #4a5568 !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    margin-bottom: 0.5rem !important;
+    display: block !important;
+}
+
+/* Button styling */
+.stButton > button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 12px !important;
+    padding: 1rem 2rem !important;
+    font-weight: 600 !important;
+    font-size: 1rem !important;
+    transition: all 0.3s ease !important;
+    width: 100% !important;
+    margin-top: 1.5rem !important;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.stButton > button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6) !important;
+}
+
+.stButton > button:active {
+    transform: translateY(0) !important;
+}
+
+.stButton > button::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    width: 5px !important;
+    height: 5px !important;
+    background: rgba(255, 255, 255, 0.5) !important;
+    opacity: 0 !important;
+    border-radius: 100% !important;
+    transform: scale(1, 1) translate(-50%) !important;
+    transform-origin: 50% 50% !important;
+}
+
+.stButton > button:focus:not(:active)::after {
+    animation: ripple 1s ease-out !important;
+}
+
+@keyframes ripple {
+    0% {
+        transform: scale(0, 0) !important;
+        opacity: 0.5 !important;
+    }
+    20% {
+        transform: scale(25, 25) !important;
+        opacity: 0.3 !important;
+    }
+    100% {
+        opacity: 0 !important;
+        transform: scale(40, 40) !important;
+    }
+}
+
+/* Password fields */
+.stTextInput[data-testid="stTextInput"]:has(input[type="password"])::before {
+    content: "🔐" !important;
+    position: absolute !important;
+    right: 15px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    font-size: 1.2rem !important;
+    z-index: 1 !important;
+    pointer-events: none !important;
+}
+
+/* Error messages */
+.stAlert[data-testid="stAlert"] {
+    background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%) !important;
+    border: none !important;
+    border-radius: 12px !important;
+    padding: 1rem !important;
+    margin: 1rem 0 !important;
+    color: #9b2c2c !important;
+    border-left: 4px solid #fc8181 !important;
+    animation: shake 0.5s ease-in-out !important;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+/* Success messages */
+.stAlert[data-testid="stSuccess"] {
+    background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%) !important;
+    border: none !important;
+    border-radius: 12px !important;
+    padding: 1rem !important;
+    margin: 1rem 0 !important;
+    color: #276749 !important;
+    border-left: 4px solid #68d391 !important;
+    animation: fadeIn 0.5s ease !important;
+}
+
+/* Link styling */
+.stMarkdown a {
+    color: #667eea !important;
+    text-decoration: none !important;
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+    position: relative !important;
+}
+
+.stMarkdown a:hover {
+    color: #764ba2 !important;
+    text-decoration: none !important;
+}
+
+.stMarkdown a::after {
+    content: '' !important;
+    position: absolute !important;
+    width: 100% !important;
+    height: 2px !important;
+    bottom: -2px !important;
+    left: 0 !important;
+    background: linear-gradient(90deg, #667eea, #764ba2) !important;
+    transform: scaleX(0) !important;
+    transform-origin: right !important;
+    transition: transform 0.3s ease !important;
+}
+
+.stMarkdown a:hover::after {
+    transform: scaleX(1) !important;
+    transform-origin: left !important;
+}
+
+/* Loading spinner */
+.stSpinner > div {
+    border-color: #667eea transparent transparent transparent !important;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px !important;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 4px !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #667eea, #764ba2) !important;
+    border-radius: 4px !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #764ba2, #667eea) !important;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .main .block-container {
+        padding: 1rem !important;
+        max-width: 90% !important;
+    }
+    
+    section[data-testid="stForm"] {
+        padding: 2rem !important;
+    }
+    
+    h1 {
+        font-size: 2rem !important;
+    }
+}
+
+/* Brand logo effect */
+[data-testid="stHeader"] {
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(10px) !important;
+    border-bottom: 1px solid rgba(102, 126, 234, 0.1) !important;
+}
+
+/* Decorative elements */
+.auth-decoration {
+    position: absolute !important;
+    width: 300px !important;
+    height: 300px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)) !important;
+    filter: blur(50px) !important;
+    z-index: -1 !important;
+}
+
+.decoration-1 {
+    top: -150px !important;
+    right: -150px !important;
+}
+
+.decoration-2 {
+    bottom: -150px !important;
+    left: -150px !important;
+}

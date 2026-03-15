@@ -148,6 +148,7 @@ class ErrorLogger:
     def log_user_action(
         action: str,
         user_id: Optional[str] = None,
+        user_email: Optional[str] = None,
         success: bool = True,
         details: Optional[Dict[str, Any]] = None
     ):
@@ -156,6 +157,7 @@ class ErrorLogger:
             "timestamp": datetime.utcnow().isoformat(),
             "action": action,
             "user_id": user_id,
+            "user_email": user_email,
             "success": success,
             "details": details or {}
         }
@@ -205,6 +207,13 @@ class RateLimiter:
         
         oldest_request = min(self.requests[user_id])
         return max(0, self.time_window - (time.time() - oldest_request))
+
+    def reset(self, user_id: str | None = None):
+        """Clear rate-limit history for one user or all users."""
+        if user_id is None:
+            self.requests.clear()
+            return
+        self.requests.pop(user_id, None)
 
 # Global rate limiter instances
 upload_limiter = RateLimiter(max_requests=10, time_window=300)  # 10 uploads per 5 minutes

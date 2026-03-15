@@ -13,7 +13,147 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.database import get_db
 
+
+def format_last_login(value):
+    """Format last_login values stored as datetime, string, or missing."""
+    if not value:
+        return "Never"
+
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M")
+
+    if hasattr(value, "to_pydatetime"):
+        return value.to_pydatetime().strftime("%Y-%m-%d %H:%M")
+
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return parsed.strftime("%Y-%m-%d %H:%M")
+        except ValueError:
+            return value
+
+    return str(value)
+
+def inject_admin_css():
+    st.markdown("""
+    <style>
+
+    /* ================= GLOBAL ================= */
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+        background-color: #f1f5f9;
+    }
+
+    .block-container {
+        padding-top: 1.2rem;
+        padding-bottom: 2rem;
+    }
+
+    /* ================= HEADER ================= */
+    .admin-header {
+        background: linear-gradient(135deg, #2563eb, #60a5fa);
+        padding: 2rem;
+        border-radius: 14px;
+        color: white;
+        margin-bottom: 1.8rem;
+        box-shadow: 0 10px 25px rgba(37,99,235,0.25);
+    }
+
+    /* ================= BUTTONS ================= */
+    .stButton > button {
+        border-radius: 8px;
+        height: 40px;
+        font-weight: 600;
+        background-color: #2563eb;
+        color: white;
+        border: none;
+    }
+
+    .stButton > button:hover {
+        background-color: #1d4ed8;
+    }
+
+    /* ================= METRICS ================= */
+    div[data-testid="metric-container"] {
+        background: white;
+        border-radius: 14px;
+        padding: 1.2rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 6px 18px rgba(2,132,199,0.08);
+    }
+
+    /* ================= TABLE ================= */
+    .stDataFrame {
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+        background: white;
+    }
+
+    /* ================= TABS ================= */
+    button[data-baseweb="tab"] {
+        font-weight: 600;
+        padding: 8px 16px;
+        color: #2563eb;
+    }
+
+    button[data-baseweb="tab"][aria-selected="true"] {
+        background-color: #dbeafe;
+        border-radius: 8px;
+    }
+
+    /* ==================================================
+       SIDEBAR (ADMIN MODE)
+       ================================================== */
+
+    /* Sidebar background */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0f172a, #1e3a8a);
+        padding-top: 1rem;
+    }
+
+    /* ---- FIX SIDEBAR TEXT VISIBILITY ---- */
+    section[data-testid="stSidebar"] * {
+        color: #e0f2fe !important;
+        font-weight: 500;
+    }
+
+    section[data-testid="stSidebar"] svg {
+        fill: #e0f2fe !important;
+    }
+
+    /* ---- Hide ALL sidebar buttons ---- */
+    section[data-testid="stSidebar"] button {
+        display: none !important;
+    }
+
+    /* ---- Show ONLY Logout button ---- */
+    section[data-testid="stSidebar"] button:has(span:contains("Logout")),
+    section[data-testid="stSidebar"] button:has(span:contains("🚪")) {
+        display: flex !important;
+        width: 90%;
+        margin: 1rem auto;
+        background-color: #ef4444 !important;
+        color: white !important;
+        border-radius: 10px;
+        font-weight: 700;
+        height: 42px;
+        justify-content: center;
+    }
+
+    section[data-testid="stSidebar"] button:hover {
+        background-color: #dc2626 !important;
+    }
+
+    </style>
+    """, unsafe_allow_html=True)
+
+
+
+
+
 def show_admin_dashboard():
+    inject_admin_css()
     """Admin Dashboard with all features"""
     
     # Check admin access
@@ -128,8 +268,7 @@ def show_admin_dashboard():
                     "Summaries": summary_count,
                     "Joined": user.get("created_at", datetime.now()).strftime("%Y-%m-%d") 
                               if isinstance(user.get("created_at"), datetime) else "Unknown",
-                    "Last Login": user.get("last_login", "").strftime("%Y-%m-%d") 
-                                 if isinstance(user.get("last_login"), datetime) else "Never"
+                    "Last Login": format_last_login(user.get("last_login"))
                 })
             
             # Display users table

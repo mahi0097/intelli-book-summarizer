@@ -1,10 +1,11 @@
 import pytest
 import sys
 import os
+from datetime import datetime
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 from utils.database import create_user, get_user_by_email
-from utils.error_handler import api_limiter
+from utils.error_handler import login_limiter
 
 class TestSecurityFeatures:
     
@@ -24,12 +25,12 @@ class TestSecurityFeatures:
         test_ip = "192.168.1.100"
         
         # Reset rate limit for test
-        if hasattr(api_limiter, 'reset'):
-            api_limiter.reset(test_ip)
+        if hasattr(login_limiter, 'reset'):
+            login_limiter.reset(test_ip)
         
         # Test multiple rapid requests
         for i in range(10):
-            allowed = api_limiter.is_allowed(test_ip)
+            allowed = login_limiter.is_allowed(test_ip)
             
             if i < 5:  # First 5 should be allowed
                 assert allowed == True

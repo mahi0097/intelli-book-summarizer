@@ -23,3 +23,31 @@ Thumbs.db
 # Logs
 logs/
 *.log
+# Secrets
+.env
+.env.*
+*.env
+
+# Python/cache
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+
+# Runtime data
+logs/
+data/
+uploads/
+temp/
+exports/
+cache/
+
+# Test artifacts
+*_test_results.json
+test_report.json
+
+# Local OS files
+.DS_Store
+Thumbs.db

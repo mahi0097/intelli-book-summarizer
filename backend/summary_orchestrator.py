@@ -2,7 +2,6 @@ import asyncio
 import time
 from bson import ObjectId
 from datetime import datetime
-from backend.preprocessing import preprocess_for_summarization
 from backend.models.summarizer import FastSummarizer
 from utils.database import (
     get_book_by_id,
@@ -14,6 +13,28 @@ from utils.database import (
 )
 from utils.formatters import convert_to_bullets
 from utils.stats import calculate_summary_stats
+
+
+class SimpleSummarizer:
+    """Cheap fallback used only when the transformer model is unavailable."""
+
+    def summarize_chunk(self, text, min_length=60, max_length=150):
+        sentences = [s.strip() for s in text.split('.') if s.strip()]
+        target_sentences = 3 if min_length <= 80 else 5
+        if len(sentences) >= target_sentences:
+            return '. '.join(sentences[:target_sentences]) + '.'
+
+        words = text.split()
+        summary = " ".join(words[:max(max_length, min_length, 100)])
+        if summary and summary[-1] not in ".!?":
+            summary += "."
+        return summary
+
+    def combine_summaries(self, summaries):
+        return ' '.join(summaries)
+
+    def post_process_summary(self, summary):
+        return summary.strip()
 
 
 def summarize_with_retry(summarizer, text, length_params, retries=3):
@@ -87,118 +108,67 @@ async def generate_summary(book_id, user_id, summary_options):
         print(f"Processing text of length: {len(raw_text)} characters")
         update_progress(book_id, f"Book retrieved ({len(raw_text)} chars)", 10)
 
-        # STEP 2: Preprocess with validation
-        update_progress(book_id, "Preprocessing text...", 20)
-        
-        try:
-            preprocessed = preprocess_for_summarization(raw_text, chunk_size=800)
-            chunks = preprocessed.get("chunks", [])
-        except Exception as e:
-            print(f"Preprocessing failed: {e}")
-            # Create simple chunks
-            words = raw_text.split()
-            chunks = []
-            for i in range(0, len(words), 800):
-                chunk_text = " ".join(words[i:i+800])
-                if len(chunk_text) > 50:  # Only add if meaningful
-                    chunks.append(chunk_text)
-        
-        if not chunks:
-            # Use the whole text as one chunk
-            chunks = [raw_text]
-        
-        print(f"Created {len(chunks)} chunks")
-        update_progress(book_id, f"Text split into {len(chunks)} chunks", 30)
-
-        # STEP 3: Init summarizer
+        # STEP 2: Initialize summarizer once and build chunks from the same instance
         update_progress(book_id, "Loading AI model...", 35)
-        
+
         try:
-            summarizer = FastSummarizer("distilbart")
+            summarizer = FastSummarizer()
         except Exception as e:
             print(f"Primary model failed: {e}")
-            try:
-                summarizer = FastSummarizer("distilbart")
-            except Exception as e2:
-                print(f"Fallback model failed: {e2}")
-                # Use a very simple fallback
-                class SimpleSummarizer:
-                    def summarize_chunk(self, text, min_length=60, max_length=150):
-                        sentences = text.split('.')
-                        sentences = [s.strip() for s in sentences if s.strip()]
-                        if len(sentences) > 3:
-                            return '. '.join(sentences[:3]) + '.'
-                        return text[:max_length]
-                    def combine_summaries(self, summaries):
-                        return ' '.join(summaries)
-                    def post_process_summary(self, summary):
-                        return summary.strip()
-                
-                summarizer = FastSummarizer("distilbart")
+            summarizer = SimpleSummarizer()
+
+        raw_word_count = len(raw_text.split())
+        if summary_options.get("source") == "pasted_text" and raw_word_count <= 1200:
+            chunks = [raw_text]
+        else:
+            chunks = summarizer.smart_chunk_text(raw_text)
+
+        total_chunks = len(chunks)
+        update_progress(book_id, f"Prepared {total_chunks} smart chunks", 40)
         
         # Configure length
         length = summary_options.get("length", "medium")
-        if length == "short":
-            length_params = {"min_length": 30, "max_length": 100}
+        if length == "very short":
+            length_params = {"min_length": 25, "max_length": 70}
+        elif length == "short":
+            length_params = {"min_length": 50, "max_length": 110}
         elif length == "long":
             length_params = {"min_length": 150, "max_length": 300}
+        elif length == "detailed":
+            length_params = {"min_length": 220, "max_length": 420}
         else:  # medium
-            length_params = {"min_length": 80, "max_length": 150}
+            length_params = {"min_length": 100, "max_length": 180}
         
-        update_progress(book_id, "Model ready", 40)
-
         # STEP 4: Chunk summarization
         chunk_summaries = []
-        total_chunks = len(chunks)
+        start_loop = time.time()
+        progress_interval = max(1, total_chunks // 10) if total_chunks else 1
 
-        for i, chunk in enumerate(chunks):
-            # Calculate progress (40% to 90%)
-            percentage = 40 + int(((i + 1) / total_chunks) * 50)
-            update_progress(
-                book_id,
-                f"Summarizing chunk {i+1}/{total_chunks}",
-                percentage
+        for i, chunk_text in enumerate(chunks):
+            elapsed = time.time() - start_loop
+            avg_time = elapsed / (i + 1)
+            remaining = avg_time * (total_chunks - i - 1)
+
+            percent = 40 + int(((i + 1) / total_chunks) * 45)
+
+            if i == 0 or i == total_chunks - 1 or (i + 1) % progress_interval == 0:
+                update_progress(
+                    book_id,
+                    f"Summarizing {i+1}/{total_chunks} • ETA {int(remaining)}s",
+                    percent
+                )
+
+            summary = await asyncio.to_thread(
+                summarizer.summarize_chunk,
+                chunk_text,
+                length_params["min_length"],
+                length_params["max_length"],
+                summary_options,
             )
 
-            # Get chunk text
-            if isinstance(chunk, dict):
-                chunk_text = chunk.get("text", "")
-            else:
-                chunk_text = str(chunk)
-            
-            print(f"Chunk {i+1} length: {len(chunk_text)} chars")
-            
-            # Skip if chunk is too short
-            if len(chunk_text.strip()) < 10:
-                print(f"Chunk {i+1} skipped - too short")
-                continue
-            
-            # Summarize chunk
-            try:
-                chunk_summary = await asyncio.to_thread(
-                    summarize_with_retry,
-                    summarizer,
-                    chunk_text,
-                    length_params
-                )
-                
-                if chunk_summary:
-                    chunk_summaries.append(chunk_summary.strip())
-                    print(f"Chunk {i+1} summarized successfully")
-                else:
-                    print(f"Chunk {i+1} summarization failed, using extractive fallback")
-                    # Use extractive fallback
-                    sentences = chunk_text.split('.')
-                    sentences = [s.strip() for s in sentences if s.strip() and len(s) > 10]
-                    if sentences:
-                        fallback = '. '.join(sentences[:2]) + '.' if len(sentences) > 2 else sentences[0] + '.'
-                        chunk_summaries.append(fallback)
-                    
-            except Exception as e:
-                print(f"Chunk {i} error: {e}")
-                # Use first part of chunk as fallback
-                if len(chunk_text) > 50:
-                    chunk_summaries.append(chunk_text[:200] + "...")
+            if summary:
+                chunk_summaries.append(summary)
+
 
         # STEP 5: Check if we have any summaries
         print(f"Total chunk summaries generated: {len(chunk_summaries)}")
@@ -217,38 +187,42 @@ async def generate_summary(book_id, user_id, summary_options):
         update_progress(book_id, f"Generated {len(chunk_summaries)} chunk summaries", 90)
 
         # STEP 6: Combine summaries
-        update_progress(book_id, "Combining summaries...", 95)
-        
-        try:
-            # Combine the chunk summaries
-            combined_text = " ".join(chunk_summaries)
-            print(f"Combined text length: {len(combined_text)} chars")
-            
-            # If combined text is reasonable length, use it directly
-            if len(combined_text.split()) <= 500:
-                final_summary = combined_text
-            else:
-                # Summarize again if too long
-                print("Summarizing combined text (too long)")
-                final_summary = await asyncio.to_thread(
-                    summarize_with_retry,
-                    summarizer,
-                    combined_text,
-                    {"min_length": 100, "max_length": 300}
-                ) or combined_text[:500] + "..."
-            
-            # Post-process
-            final_summary = final_summary.strip()
-            if hasattr(summarizer, 'post_process_summary'):
-                final_summary = summarizer.post_process_summary(final_summary)
-            
-        except Exception as e:
-            print(f"Combining failed: {e}")
-            # Use the best chunk summary
-            final_summary = chunk_summaries[0] if chunk_summaries else "Summary could not be generated."
+        combined = " ".join(chunk_summaries)
+
+        combine_threshold = {
+            "very short": 250,
+            "short": 350,
+            "medium": 550,
+            "long": 900,
+            "detailed": 1400,
+        }.get(length, 550)
+
+        if len(combined.split()) > combine_threshold:
+            final_summary = await asyncio.to_thread(
+                summarizer.summarize_chunk,
+                combined,
+                max(100, length_params["min_length"]),
+                max(250, length_params["max_length"]),
+                summary_options,
+            )
+        else:
+            final_summary = combined
+
+        final_word_count = len(final_summary.split()) if final_summary else 0
+        min_expected_words = max(40, int(length_params["min_length"] * 0.6))
+        if final_word_count < min_expected_words:
+            fallback_summary = await asyncio.to_thread(
+                summarizer.extractive_fallback if hasattr(summarizer, "extractive_fallback") else SimpleSummarizer().summarize_chunk,
+                raw_text,
+                length_params["min_length"],
+                length_params["max_length"],
+            )
+            if fallback_summary and len(fallback_summary.split()) > final_word_count:
+                final_summary = fallback_summary
+
 
         # STEP 7: Style formatting
-        if summary_options.get("style") == "bullets":
+        if summary_options.get("style") == "bullet_points":
             try:
                 final_summary = convert_to_bullets(final_summary)
             except:

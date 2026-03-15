@@ -2,6 +2,7 @@ import pytest
 import sys
 import os
 import asyncio
+from datetime import datetime
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 from backend.summary_orchestrator import generate_summary
@@ -10,7 +11,7 @@ from utils.database import create_book, create_user
 class TestSummarizationIntegration:
     
     @pytest.fixture
-    async def setup_test_book(self):
+    def setup_test_book(self):
         """Setup test book for summarization"""
         # Create test user
         user_id = create_user(
@@ -49,10 +50,9 @@ class TestSummarizationIntegration:
         
         return user_id, book_id, book_text
     
-    @pytest.mark.asyncio
-    async def test_complete_summarization_flow(self, setup_test_book):
+    def test_complete_summarization_flow(self, setup_test_book):
         """Test complete summarization workflow"""
-        user_id, book_id, original_text = await setup_test_book
+        user_id, book_id, original_text = setup_test_book
         
         # Define summary options
         summary_options = {
@@ -62,7 +62,7 @@ class TestSummarizationIntegration:
         }
         
         # Generate summary
-        result = await generate_summary(book_id, user_id, summary_options)
+        result = asyncio.run(generate_summary(book_id, user_id, summary_options))
         
         # Verify results
         assert result["success"] == True
