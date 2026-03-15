@@ -46,8 +46,21 @@ class FastSummarizer:
         self._init_huggingface_model()
 
     def _init_huggingface_model(self):
-        from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
-        import torch
+        self.device = -1
+        self.tokenizer = None
+        self.model = None
+        self.pipeline = None
+
+        try:
+            from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
+            import torch
+        except ImportError as exc:
+            print(
+                "Hugging Face runtime dependencies are unavailable; "
+                "using extractive fallback summaries instead."
+            )
+            print(f"Dependency error: {exc}")
+            return
 
         print(f"Loading Hugging Face summarizer: {self.HF_MODEL_NAME}")
 
@@ -57,25 +70,37 @@ class FastSummarizer:
         self.device = 0 if torch.cuda.is_available() else -1
         self.chunk_chars = 2200 if self.device == 0 else 2000
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self.HF_MODEL_NAME,
-            cache_dir=cache_dir,
-            use_fast=True,
-        )
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.HF_MODEL_NAME,
+                cache_dir=cache_dir,
+                use_fast=True,
+            )
 
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(
-            self.HF_MODEL_NAME,
-            cache_dir=cache_dir,
-            low_cpu_mem_usage=True,
-        )
+            self.model = AutoModelForSeq2SeqLM.from_pretrained(
+                self.HF_MODEL_NAME,
+                cache_dir=cache_dir,
+                low_cpu_mem_usage=True,
+            )
 
-        self.pipeline = pipeline(
-            "summarization",
-            model=self.model,
-            tokenizer=self.tokenizer,
-            device=self.device,
-            batch_size=1,
-        )
+            self.pipeline = pipeline(
+                "summarization",
+                model=self.model,
+                tokenizer=self.tokenizer,
+                device=self.device,
+                batch_size=1,
+            )
+        except Exception as exc:
+            print(
+                "Failed to initialize the Hugging Face summarizer; "
+                "using extractive fallback summaries instead."
+            )
+            print(f"Initialization error: {exc}")
+            self.device = -1
+            self.tokenizer = None
+            self.model = None
+            self.pipeline = None
+            return
 
         print("BART model ready")
         print(f"Chunk size: {self.chunk_chars} chars")
