@@ -719,11 +719,19 @@ def logout_user():
 
 def get_base64_of_image(file_path):
     """Convert image to base64 string"""
-    try:
-        with open(file_path, "rb") as img_file:
-            return base64.b64encode(img_file.read()).decode()
-    except FileNotFoundError:
-        return None
+    candidate_paths = [
+        Path(file_path),
+        project_root / file_path,
+        project_root / "Image" / Path(file_path).name,
+        project_root / "image" / Path(file_path).name,
+    ]
+
+    for candidate in candidate_paths:
+        if candidate.exists():
+            with open(candidate, "rb") as img_file:
+                return base64.b64encode(img_file.read()).decode()
+
+    return None
 
 # Create sidebar navigation - IMPROVED VERSION
 def create_sidebar():
@@ -885,7 +893,7 @@ def show_home_page():
     col1, col2 = st.columns([6, 2])
     with col1:
         # Try to load logo image
-        logo_base64 = get_base64_of_image("image/image.png")
+        logo_base64 = get_base64_of_image("Image/image.png")
         if logo_base64:
             st.markdown(f"""
             <div class="logo-container">
@@ -946,7 +954,7 @@ def show_home_page():
     with col2:
         # Try to load book image
         try:
-            img_base64 = get_base64_of_image("image/book_image.png")
+            img_base64 = get_base64_of_image("Image/book_image.png")
             if img_base64:
                 st.markdown(f"""
                 <div class="ai-book-container">

@@ -3,6 +3,7 @@ import os
 import re
 import sys
 from datetime import datetime
+from pathlib import Path
 
 import requests
 import streamlit as st
@@ -459,8 +460,20 @@ def perform_login(email, password):
 
 
 def get_base64_image(path):
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
+    project_root = Path(__file__).resolve().parent.parent
+    candidate_paths = [
+        Path(path),
+        project_root / path,
+        project_root / "Image" / Path(path).name,
+        project_root / "image" / Path(path).name,
+    ]
+
+    for candidate in candidate_paths:
+        if candidate.exists():
+            with open(candidate, "rb") as f:
+                return base64.b64encode(f.read()).decode()
+
+    raise FileNotFoundError(path)
 
 
 def navigate_auth(target_page):
@@ -496,7 +509,7 @@ def render_auth_footer(prompt_text, button_text, target_page, key_prefix):
 def render_auth_logo():
     """Render the auth logo if available."""
     try:
-        logo = get_base64_image("image/image.png")
+        logo = get_base64_image("Image/image.png")
         st.markdown(
             f"""
             <div class="logo-center">
