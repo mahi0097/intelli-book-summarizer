@@ -3,6 +3,9 @@ fastapi>=0.95
 uvicorn[standard]
 transformers>=4.0
 huggingface-hub
+plotly
+pandas
+numpy
 PyPDF2>=3.0
 pdfplumber>=0.7
 python-docx>=0.8
