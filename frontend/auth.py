@@ -11,13 +11,14 @@ import streamlit as st
 from frontend.api_config import API_BASE_URL, LOGIN_ENDPOINTS, REGISTER_ENDPOINTS
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+LOCAL_AUTH_IMPORT_ERROR = None
 
 try:
     from backend.auth import register_user, login_user
 except ImportError as e:
-    st.error(f"Backend auth module not found: {e}")
-    register_user = lambda name, email, password, role="user": {"success": False, "message": "Backend not available"}
-    login_user = lambda email, password: {"success": False, "message": "Backend not available"}
+    LOCAL_AUTH_IMPORT_ERROR = str(e)
+    register_user = None
+    login_user = None
 
 
 def _post_to_backend(candidate_paths, payload):
@@ -61,6 +62,14 @@ def _post_to_backend(candidate_paths, payload):
     if last_error:
         return {"success": False, "message": f"Remote backend unavailable: {last_error}"}
     return {"success": False, "message": "No matching auth endpoint found on deployed backend"}
+
+
+def _local_auth_unavailable_response():
+    """Return a stable fallback message when frontend cannot import local auth."""
+    message = "Backend auth is not available in this deployment."
+    if LOCAL_AUTH_IMPORT_ERROR:
+        message = f"{message} Missing dependency: {LOCAL_AUTH_IMPORT_ERROR}"
+    return {"success": False, "message": message}
 
 
 def load_auth_css():
@@ -387,7 +396,7 @@ def perform_registration(name, email, password):
             result = remote_result
         elif "No matching auth endpoint found" in remote_result.get("message", "") or "Remote backend unavailable" in remote_result.get("message", ""):
             if register_user is None:
-                return remote_result
+                return _local_auth_unavailable_response()
             result = register_user(name.strip(), email, password)
         else:
             result = remote_result
@@ -430,7 +439,7 @@ def perform_login(email, password):
             result = remote_result
         elif "No matching auth endpoint found" in remote_result.get("message", "") or "Remote backend unavailable" in remote_result.get("message", ""):
             if login_user is None:
-                return remote_result
+                return _local_auth_unavailable_response()
             result = login_user(email, password)
         else:
             result = remote_result
@@ -461,11 +470,12 @@ def perform_login(email, password):
 
 def get_base64_image(path):
     project_root = Path(__file__).resolve().parent.parent
+    image_dir = project_root / "Image"
+    image_name = Path(path).name
     candidate_paths = [
         Path(path),
         project_root / path,
-        project_root / "Image" / Path(path).name,
-        project_root / "image" / Path(path).name,
+        image_dir / image_name,
     ]
 
     for candidate in candidate_paths:

@@ -180,7 +180,6 @@ try:
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False
-    st.warning("ReportLab not installed. PDF export will use basic formatting.")
 
 
 def run_async(coro):
@@ -339,6 +338,10 @@ def export_pdf_enhanced(summary_text, title, author, original_text=None):
 
 def export_pdf_basic(summary_text, title, author, original_text=None):
     """Basic PDF export fallback"""
+    if not REPORTLAB_AVAILABLE:
+        st.warning("PDF export is unavailable because ReportLab is not installed in this deployment.")
+        return None
+
     try:
         from reportlab.platypus import SimpleDocTemplate, Paragraph
         from reportlab.lib.pagesizes import A4
@@ -874,7 +877,10 @@ Date: {datetime.now().strftime('%Y-%m-%d')}
                         else:
                             st.error("Failed to generate PDF")
             with col_pdf2:
-                st.info("Click 'Generate PDF' to create and download the PDF file")
+                if REPORTLAB_AVAILABLE:
+                    st.info("Click 'Generate PDF' to create and download the PDF file")
+                else:
+                    st.warning("ReportLab is missing in this deployment, so PDF export is currently unavailable.")
 
         elif export_format == "JSON":
             json_content = format_json_export(

@@ -208,7 +208,7 @@ class RateLimiter:
         oldest_request = min(self.requests[user_id])
         return max(0, self.time_window - (time.time() - oldest_request))
 
-    def reset(self, user_id: str | None = None):
+    def reset(self, user_id: Optional[str] = None):
         """Clear rate-limit history for one user or all users."""
         if user_id is None:
             self.requests.clear()

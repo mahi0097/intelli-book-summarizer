@@ -23,7 +23,8 @@ def print(*args, **kwargs):
         builtins.print(safe_message, end=end, file=file, flush=flush, **kwargs)
 
 # Add project root to Python path
-project_root = Path(__file__).parent
+project_root = Path(__file__).resolve().parent
+IMAGE_DIR = project_root / "Image"
 sys.path.insert(0, str(project_root))
 
 # Create necessary directories
@@ -31,7 +32,7 @@ os.makedirs('logs', exist_ok=True)
 os.makedirs('uploads', exist_ok=True)
 os.makedirs('temp', exist_ok=True)
 os.makedirs('exports', exist_ok=True)
-os.makedirs('image', exist_ok=True)
+IMAGE_DIR.mkdir(exist_ok=True)
 
 print("🚀 Starting Book Summarization App...")
 print(f"📁 Project root: {project_root}")
@@ -719,11 +720,11 @@ def logout_user():
 
 def get_base64_of_image(file_path):
     """Convert image to base64 string"""
+    image_name = Path(file_path).name
     candidate_paths = [
         Path(file_path),
         project_root / file_path,
-        project_root / "Image" / Path(file_path).name,
-        project_root / "image" / Path(file_path).name,
+        IMAGE_DIR / image_name,
     ]
 
     for candidate in candidate_paths:
