@@ -4,7 +4,10 @@ import re
 import sys
 from datetime import datetime
 
+import requests
 import streamlit as st
+
+from frontend.api_config import API_BASE_URL, LOGIN_ENDPOINTS, REGISTER_ENDPOINTS
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -14,6 +17,33 @@ except ImportError as e:
     st.error(f"Backend auth module not found: {e}")
     register_user = lambda name, email, password, role="user": {"success": False, "message": "Backend not available"}
     login_user = lambda email, password: {"success": False, "message": "Backend not available"}
+
+
+def _post_to_backend(candidate_paths, payload):
+    """Try posting to the deployed backend using a list of candidate endpoints."""
+    last_error = None
+
+    for path in candidate_paths:
+        url = f"{API_BASE_URL.rstrip('/')}{path}"
+        try:
+            response = requests.post(url, json=payload, timeout=15)
+            if response.ok:
+                return response.json()
+
+            # If the endpoint exists but rejected the request, surface that message.
+            if response.status_code not in (404, 405):
+                try:
+                    error_data = response.json()
+                    message = error_data.get("message") or error_data.get("detail") or response.text
+                except Exception:
+                    message = response.text or f"HTTP {response.status_code}"
+                return {"success": False, "message": message}
+        except requests.RequestException as exc:
+            last_error = str(exc)
+
+    if last_error:
+        return {"success": False, "message": f"Remote backend unavailable: {last_error}"}
+    return {"success": False, "message": "No matching auth endpoint found on deployed backend"}
 
 
 def load_auth_css():
@@ -327,11 +357,23 @@ def validate_registration(name, email, password, confirm):
 def perform_registration(name, email, password):
     """Perform user registration with error handling."""
     try:
-        if register_user is None:
-            st.error("Registration service unavailable")
-            return {"success": False, "message": "Service unavailable"}
+        remote_result = _post_to_backend(
+            REGISTER_ENDPOINTS,
+            {
+                "name": name.strip(),
+                "email": email,
+                "password": password,
+            },
+        )
 
-        result = register_user(name.strip(), email, password)
+        if remote_result.get("success"):
+            result = remote_result
+        elif "No matching auth endpoint found" in remote_result.get("message", "") or "Remote backend unavailable" in remote_result.get("message", ""):
+            if register_user is None:
+                return remote_result
+            result = register_user(name.strip(), email, password)
+        else:
+            result = remote_result
 
         if result.get("success"):
             from utils.error_handler import ErrorLogger
@@ -359,11 +401,22 @@ def show_auth_page(mode="login"):
 def perform_login(email, password):
     """Perform login with error handling."""
     try:
-        if login_user is None:
-            st.error("Login service unavailable")
-            return {"success": False, "message": "Service unavailable"}
+        remote_result = _post_to_backend(
+            LOGIN_ENDPOINTS,
+            {
+                "email": email,
+                "password": password,
+            },
+        )
 
-        result = login_user(email, password)
+        if remote_result.get("success"):
+            result = remote_result
+        elif "No matching auth endpoint found" in remote_result.get("message", "") or "Remote backend unavailable" in remote_result.get("message", ""):
+            if login_user is None:
+                return remote_result
+            result = login_user(email, password)
+        else:
+            result = remote_result
 
         if result.get("success"):
             user = result["user"]
