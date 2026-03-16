@@ -17,6 +17,7 @@ pytest>=7.0
 pytest-cov
 pytest-mock
 pytest-asyncio
+pytest-json-report
 requests-mock
 faker
 factory-boy
