@@ -37,6 +37,22 @@ def _post_to_backend(candidate_paths, payload):
                     message = error_data.get("message") or error_data.get("detail") or response.text
                 except Exception:
                     message = response.text or f"HTTP {response.status_code}"
+
+                lowered_message = str(message).lower()
+                content_type = response.headers.get("content-type", "").lower()
+                is_html_error = (
+                    "text/html" in content_type
+                    or "<html" in lowered_message
+                    or "<title>" in lowered_message
+                )
+
+                # Some hosted backends return generic HTML 403/401 pages for blocked
+                # requests. Treat those as an unavailable remote auth backend so the
+                # app can fall back to the local auth implementation.
+                if response.status_code in (401, 403) and is_html_error:
+                    last_error = f"Remote auth blocked request with HTTP {response.status_code}"
+                    continue
+
                 return {"success": False, "message": message}
         except requests.RequestException as exc:
             last_error = str(exc)
