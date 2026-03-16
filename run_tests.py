@@ -47,19 +47,44 @@ def run_pytest_tests():
             if os.path.exists(report_file):
                 with open(report_file, 'r') as f:
                     report = json.load(f)
-                    passed = report.get("summary", {}).get("passed", 0)
-                    failed = report.get("summary", {}).get("failed", 0)
-                    total = passed + failed
+                    summary = report.get("summary", {})
+                    passed = summary.get("passed", 0)
+                    failed = summary.get("failed", 0)
+                    errors = summary.get("error", 0) + summary.get("errors", 0)
+                    skipped = summary.get("skipped", 0)
+                    xfailed = summary.get("xfailed", 0)
+                    xpassed = summary.get("xpassed", 0)
+                    total = summary.get(
+                        "total",
+                        passed + failed + errors + skipped + xfailed + xpassed
+                    )
                     
                     all_results[category] = {
                         "total": total,
                         "passed": passed,
                         "failed": failed,
+                        "errors": errors,
+                        "skipped": skipped,
+                        "return_code": result.returncode,
                         "success_rate": (passed / total * 100) if total > 0 else 0
                     }
                     
                     print(f"  Results: {passed}/{total} passed "
                           f"({all_results[category]['success_rate']:.1f}%)")
+                    if errors:
+                        print(f"  Errors: {errors}")
+                    if skipped:
+                        print(f"  Skipped: {skipped}")
+            else:
+                all_results[category] = {
+                    "total": 0,
+                    "passed": 0,
+                    "failed": 0,
+                    "errors": 1 if result.returncode != 0 else 0,
+                    "skipped": 0,
+                    "return_code": result.returncode,
+                    "success_rate": 0
+                }
             
             print(result.stdout)
             if result.stderr:
@@ -88,6 +113,8 @@ def generate_test_report(results):
         print(f"  Total Tests: {data['total']}")
         print(f"  Passed: {data['passed']}")
         print(f"  Failed: {data['failed']}")
+        print(f"  Errors: {data.get('errors', 0)}")
+        print(f"  Skipped: {data.get('skipped', 0)}")
         print(f"  Success Rate: {data['success_rate']:.1f}%")
     
     # Save report
