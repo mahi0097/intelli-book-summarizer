@@ -2,10 +2,25 @@
 import os
 import sys
 import base64
+import builtins
 import streamlit as st
 from datetime import datetime
 from pathlib import Path
 from utils.database import create_user
+
+
+def print(*args, **kwargs):
+    """Safe console printing for Windows terminals with limited encodings."""
+    sep = kwargs.pop("sep", " ")
+    end = kwargs.pop("end", "\n")
+    file = kwargs.pop("file", None)
+    flush = kwargs.pop("flush", False)
+    message = sep.join(str(arg) for arg in args)
+    try:
+        builtins.print(message, end=end, file=file, flush=flush, **kwargs)
+    except UnicodeEncodeError:
+        safe_message = message.encode("ascii", "replace").decode("ascii")
+        builtins.print(safe_message, end=end, file=file, flush=flush, **kwargs)
 
 # Add project root to Python path
 project_root = Path(__file__).parent

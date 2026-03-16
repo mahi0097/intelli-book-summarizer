@@ -2,11 +2,26 @@
 import os
 import re
 import bcrypt
+import builtins
 from bson import ObjectId
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from datetime import datetime
 from dotenv import load_dotenv
 import logging
+
+
+def print(*args, **kwargs):
+    """Safe console printing for Windows terminals with limited encodings."""
+    sep = kwargs.pop("sep", " ")
+    end = kwargs.pop("end", "\n")
+    file = kwargs.pop("file", None)
+    flush = kwargs.pop("flush", False)
+    message = sep.join(str(arg) for arg in args)
+    try:
+        builtins.print(message, end=end, file=file, flush=flush, **kwargs)
+    except UnicodeEncodeError:
+        safe_message = message.encode("ascii", "replace").decode("ascii")
+        builtins.print(safe_message, end=end, file=file, flush=flush, **kwargs)
 
 # पहले logs directory create करें
 try:
@@ -81,12 +96,46 @@ except Exception as e:
                 self.collections[name] = MockCollection(name, self.mock_data)
             return self.collections[name]
 
+        def __getattr__(self, name):
+            if name.startswith("__"):
+                raise AttributeError(name)
+            return self.__getitem__(name)
+
 class MockCollection:
     def __init__(self, name, mock_data):
         self.name = name
         self.mock_data = mock_data
         if name not in self.mock_data:
             self.mock_data[name] = []
+
+    def _matches(self, document, query=None):
+        if not query:
+            return True
+
+        for key, value in query.items():
+            doc_value = document.get(key)
+            if isinstance(value, dict):
+                if "$ne" in value and doc_value == value["$ne"]:
+                    return False
+                if "$gte" in value and (doc_value is None or doc_value < value["$gte"]):
+                    return False
+            elif doc_value != value:
+                return False
+        return True
+
+    def _resolve_field(self, document, field_path):
+        if not isinstance(field_path, str):
+            return field_path
+        if not field_path.startswith("$"):
+            return field_path
+
+        value = document
+        for part in field_path[1:].split("."):
+            if isinstance(value, dict):
+                value = value.get(part)
+            else:
+                return None
+        return value
     
     def insert_one(self, document):
         document['_id'] = ObjectId()
@@ -94,47 +143,183 @@ class MockCollection:
         self.mock_data[self.name].append(document)
         return type('Result', (), {'inserted_id': document['_id']})()
     
-    def find_one(self, query=None):
-        if not self.mock_data[self.name]:
-            return None
-        return self.mock_data[self.name][0]
+    def find_one(self, query=None, *args, **kwargs):
+        results = [document for document in self.mock_data[self.name] if self._matches(document, query)]
+
+        sort_spec = kwargs.get("sort")
+        if sort_spec and results:
+            for sort_key, direction in reversed(sort_spec):
+                reverse = direction == -1
+                results.sort(key=lambda doc: doc.get(sort_key), reverse=reverse)
+
+        if results:
+            return results[0]
+        return None
     
     def find(self, query=None):
-        return MockCursor(self.mock_data[self.name])
+        results = [document for document in self.mock_data[self.name] if self._matches(document, query)]
+        return MockCursor(results)
     
     def update_one(self, filter, update, **kwargs):
-        return type('Result', (), {'modified_count': 1})()
+        document = self.find_one(filter)
+        modified_count = 0
+
+        if document:
+            if "$set" in update:
+                document.update(update["$set"])
+            modified_count = 1
+        elif kwargs.get("upsert"):
+            new_document = dict(filter or {})
+            if "$set" in update:
+                new_document.update(update["$set"])
+            self.insert_one(new_document)
+            modified_count = 1
+
+        return type('Result', (), {'modified_count': modified_count})()
     
     def update_many(self, filter, update):
-        return type('Result', (), {'modified_count': 0})()
+        modified_count = 0
+        for document in self.mock_data[self.name]:
+            if self._matches(document, filter):
+                if "$set" in update:
+                    document.update(update["$set"])
+                modified_count += 1
+        return type('Result', (), {'modified_count': modified_count})()
     
     def delete_one(self, filter):
+        for index, document in enumerate(self.mock_data[self.name]):
+            if self._matches(document, filter):
+                del self.mock_data[self.name][index]
+                return type('Result', (), {'deleted_count': 1})()
         return type('Result', (), {'deleted_count': 0})()
     
     def delete_many(self, filter):
-        return type('Result', (), {'deleted_count': 0})()
+        original_count = len(self.mock_data[self.name])
+        self.mock_data[self.name] = [
+            document for document in self.mock_data[self.name]
+            if not self._matches(document, filter)
+        ]
+        deleted_count = original_count - len(self.mock_data[self.name])
+        return type('Result', (), {'deleted_count': deleted_count})()
     
     def count_documents(self, filter):
-        return len(self.mock_data[self.name])
+        return len([document for document in self.mock_data[self.name] if self._matches(document, filter)])
+
+    def aggregate(self, pipeline):
+        results = list(self.mock_data[self.name])
+
+        for stage in pipeline or []:
+            if "$match" in stage:
+                results = [document for document in results if self._matches(document, stage["$match"])]
+
+            elif "$group" in stage:
+                group_spec = stage["$group"]
+                grouped = {}
+
+                for document in results:
+                    group_key_spec = group_spec.get("_id")
+                    if isinstance(group_key_spec, dict):
+                        group_key = {
+                            key: self._resolve_field(document, expr)
+                            for key, expr in group_key_spec.items()
+                        }
+                        group_key_hashable = tuple(sorted(group_key.items()))
+                    else:
+                        group_key = self._resolve_field(document, group_key_spec)
+                        group_key_hashable = group_key
+
+                    if group_key_hashable not in grouped:
+                        grouped[group_key_hashable] = {"_id": group_key}
+                        for output_key, expression in group_spec.items():
+                            if output_key == "_id":
+                                continue
+                            if "$sum" in expression:
+                                grouped[group_key_hashable][output_key] = 0
+                            elif "$avg" in expression:
+                                grouped[group_key_hashable][output_key] = {"total": 0, "count": 0}
+                            elif "$max" in expression:
+                                grouped[group_key_hashable][output_key] = None
+                            elif "$min" in expression:
+                                grouped[group_key_hashable][output_key] = None
+
+                    current_group = grouped[group_key_hashable]
+                    for output_key, expression in group_spec.items():
+                        if output_key == "_id":
+                            continue
+
+                        if "$sum" in expression:
+                            sum_expr = expression["$sum"]
+                            increment = 1 if sum_expr == 1 else (self._resolve_field(document, sum_expr) or 0)
+                            current_group[output_key] += increment
+                        elif "$avg" in expression:
+                            avg_value = self._resolve_field(document, expression["$avg"])
+                            if avg_value is not None:
+                                current_group[output_key]["total"] += avg_value
+                                current_group[output_key]["count"] += 1
+                        elif "$max" in expression:
+                            max_value = self._resolve_field(document, expression["$max"])
+                            if current_group[output_key] is None or (max_value is not None and max_value > current_group[output_key]):
+                                current_group[output_key] = max_value
+                        elif "$min" in expression:
+                            min_value = self._resolve_field(document, expression["$min"])
+                            if current_group[output_key] is None or (min_value is not None and min_value < current_group[output_key]):
+                                current_group[output_key] = min_value
+
+                finalized = []
+                for group in grouped.values():
+                    for output_key, value in list(group.items()):
+                        if isinstance(value, dict) and "total" in value and "count" in value:
+                            group[output_key] = value["total"] / value["count"] if value["count"] else 0
+                    finalized.append(group)
+                results = finalized
+
+            elif "$sort" in stage:
+                sort_spec = stage["$sort"]
+                for sort_key, direction in reversed(list(sort_spec.items())):
+                    reverse = direction == -1
+                    results.sort(key=lambda doc: doc.get(sort_key), reverse=reverse)
+
+            elif "$limit" in stage:
+                results = results[:stage["$limit"]]
+
+            elif "$skip" in stage:
+                results = results[stage["$skip"]:]
+
+            else:
+                # Keep mock mode resilient even when the pipeline uses stages
+                # that are not implemented in the fallback database.
+                continue
+
+        return MockCursor(results)
 
 class MockCursor:
     def __init__(self, data):
         self.data = data
+        self._index = 0
     
     def sort(self, key, direction):
+        reverse = direction == -1
+        self.data.sort(key=lambda item: item.get(key), reverse=reverse)
         return self
     
     def limit(self, n):
+        self.data = self.data[:n]
         return self
     
     def skip(self, n):
+        self.data = self.data[n:]
         return self
     
     def __iter__(self):
+        self._index = 0
         return iter(self.data)
     
     def __next__(self):
-        pass
+        if self._index >= len(self.data):
+            raise StopIteration
+        item = self.data[self._index]
+        self._index += 1
+        return item
 
 # Create mock database if real connection failed
 if db is None:
