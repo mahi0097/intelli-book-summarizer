@@ -65,6 +65,7 @@ def verify_token(token):
 # =========================
 def is_valid_email(email):
     """Validate email format"""
+    email = (email or "").strip().lower()
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
 

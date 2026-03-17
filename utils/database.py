@@ -332,6 +332,7 @@ def connect_db():
 
 def is_valid_email(email):
     """Validate email format"""
+    email = (email or "").strip().lower()
     return bool(re.match(r"[^@]+@[^@]+\.[^@]+", email))
 
 def create_user(name, email, password, role="user"):

@@ -367,11 +367,14 @@ def load_auth_css():
 def validate_registration(name, email, password, confirm):
     """Validate registration inputs."""
     errors = []
-    if len(name.strip()) < 2:
+    clean_name = name.strip()
+    clean_email = email.strip().lower()
+
+    if len(clean_name) < 2:
         errors.append("Name must be at least 2 characters")
-    if not re.match(r"^[A-Za-z\s\-']+$", name.strip()):
+    if not re.match(r"^[A-Za-z\s\-']+$", clean_name):
         errors.append("Name must contain only letters, spaces, hyphens, and apostrophes")
-    if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}$", email):
+    if not re.fullmatch(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}", clean_email):
         errors.append("Invalid email format")
     if len(password) < 8:
         errors.append("Password must be at least 8 characters")

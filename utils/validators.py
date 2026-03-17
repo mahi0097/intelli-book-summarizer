@@ -22,7 +22,9 @@ class InputValidator:
     @staticmethod
     def validate_email(email: str) -> Tuple[bool, str]:
         """Validate email format"""
-        if not email or len(email.strip()) == 0:
+        email = (email or "").strip().lower()
+
+        if not email:
             return False, "Email is required"
         
         if len(email) > 254:
