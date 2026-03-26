@@ -3,7 +3,9 @@ import os
 import sys
 import time
 import asyncio
+import re
 from datetime import datetime
+from pathlib import Path
 from bson import ObjectId
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -122,8 +124,40 @@ def load_upload_css():
     """, unsafe_allow_html=True)
 
 
-UPLOAD_DIR = "data/uploads/"
+BASE_DIR = Path(__file__).resolve().parent.parent
+UPLOAD_DIR = BASE_DIR / "data" / "uploads"
 MAX_FILE_SIZE_MB = 10
+
+
+def _safe_upload_filename(filename):
+    """Keep uploaded filenames safe for local and hosted deployments."""
+    original_name = Path(filename).name
+    stem = Path(original_name).stem
+    suffix = Path(original_name).suffix.lower()
+
+    safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._")
+    if not safe_stem:
+        safe_stem = f"book_{int(time.time())}"
+
+    return f"{safe_stem}{suffix}"
+
+
+def _save_uploaded_file(uploaded_file):
+    """Persist the uploaded file and return the absolute saved path."""
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+    safe_name = _safe_upload_filename(uploaded_file.name)
+    target_path = UPLOAD_DIR / safe_name
+
+    counter = 1
+    while target_path.exists():
+        target_path = UPLOAD_DIR / f"{Path(safe_name).stem}_{counter}{Path(safe_name).suffix}"
+        counter += 1
+
+    with target_path.open("wb") as file_handle:
+        file_handle.write(uploaded_file.getvalue())
+
+    return str(target_path)
 
 
 def top_header(user):
@@ -208,34 +242,48 @@ def show_upload_page():
         chapter = st.text_input("Chapter (optional)")
 
         if st.button("📤 Upload & Extract"):
-            os.makedirs(UPLOAD_DIR, exist_ok=True)
-            file_path = os.path.join(UPLOAD_DIR, filename)
+            book_id = None
+            try:
+                with st.spinner("Uploading and extracting text..."):
+                    file_path = _save_uploaded_file(uploaded_file)
 
-            with open(file_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
+                    book_id = create_book(
+                        user_id=user["user_id"],
+                        title=title,
+                        author=author,
+                        chapter=chapter,
+                        file_path=file_path,
+                        raw_text=""
+                    )
 
-            book_id = create_book(
-                user_id=user["user_id"],
-                title=title,
-                author=author,
-                chapter=chapter,
-                file_path=file_path,
-                raw_text=""
-            )
+                    if not book_id:
+                        raise ValueError("Book record could not be created.")
 
-            update_book_status(book_id, "extracting")
+                    update_book_status(book_id, "extracting")
 
-            with st.spinner("Extracting text..."):
-                extract = process_book(book_id, file_path)
+                    extract = process_book(book_id, file_path)
 
-            if not extract["success"]:
-                st.error("Text extraction failed.")
-                update_book_status(book_id, "failed")
+                if not extract.get("success"):
+                    error_message = extract.get("error", "Unknown extraction error.")
+                    st.error(f"Text extraction failed: {error_message}")
+                    update_book_status(book_id, "failed")
+                    return
+
+                st.success("Text extracted successfully!")
+                st.caption(f"Saved file: {Path(file_path).name}")
+                st.session_state.latest_book_id = str(book_id)
+                st.rerun()
+
+            except Exception as exc:
+                if book_id:
+                    update_book_status(book_id, "failed")
+                    db.books.update_one(
+                        {"_id": ObjectId(book_id) if isinstance(book_id, str) else book_id},
+                        {"$set": {"error_message": str(exc)}}
+                    )
+                st.error(f"Upload failed: {exc}")
+                st.info("If this only happens after deployment, check your app logs and MongoDB settings.")
                 return
-
-            st.success("✔ Text extracted successfully!")
-            st.session_state.latest_book_id = str(book_id)
-            st.rerun()
 
     st.markdown("---")
     st.subheader("Generate Summary")
