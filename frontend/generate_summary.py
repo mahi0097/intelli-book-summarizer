@@ -755,8 +755,9 @@ def summary_generation_page():
             col1, col2, col3 = st.columns(3)
 
             with col1:
+                clipboard_summary = st.session_state.generated_summary.replace("`", "\\`")
                 html_code = f'''
-                <button onclick="navigator.clipboard.writeText(`{st.session_state.generated_summary.replace('`', '\\`')}`).then(() => {{
+                <button onclick="navigator.clipboard.writeText(`{clipboard_summary}`).then(() => {{
                     const btn = event.target;
                     const originalText = btn.innerHTML;
                     btn.innerHTML = '✅ Copied!';
@@ -775,8 +776,9 @@ def summary_generation_page():
             with col2:
                 if include_original:
                     full_text = f"Summary:\n{st.session_state.generated_summary}\n\n---\n\nOriginal Text Excerpt:\n{st.session_state.generated_raw_text[:1000]}..."
+                    clipboard_full_text = full_text.replace("`", "\\`")
                     html_code = f'''
-                    <button onclick="navigator.clipboard.writeText(`{full_text.replace('`', '\\`')}`).then(() => {{
+                    <button onclick="navigator.clipboard.writeText(`{clipboard_full_text}`).then(() => {{
                         const btn = event.target;
                         const originalText = btn.innerHTML;
                         btn.innerHTML = '✅ Copied!';
@@ -800,9 +802,10 @@ By: {st.session_state.generated_author}
 Date: {datetime.now().strftime('%Y-%m-%d')}
 
 {st.session_state.generated_summary}"""
+                clipboard_formatted_text = formatted_text.replace("`", "\\`")
 
                 html_code = f'''
-                <button onclick="navigator.clipboard.writeText(`{formatted_text.replace('`', '\\`')}`).then(() => {{
+                <button onclick="navigator.clipboard.writeText(`{clipboard_formatted_text}`).then(() => {{
                     const btn = event.target;
                     const originalText = btn.innerHTML;
                     btn.innerHTML = '✅ Copied!';
