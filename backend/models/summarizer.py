@@ -2,14 +2,22 @@ import math
 import os
 import re
 import time
+import warnings
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
 
 try:
-    import google.generativeai as genai
+    from google import genai as google_genai
 except ImportError:
-    genai = None
+    google_genai = None
+
+try:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        import google.generativeai as legacy_genai
+except ImportError:
+    legacy_genai = None
 
 
 class FastSummarizer:
@@ -42,8 +50,9 @@ class FastSummarizer:
     def _init_model(self):
         self.model = None
         self.using_gemini = False
+        self.gemini_backend = None
 
-        if genai is None:
+        if google_genai is None and legacy_genai is None:
             return
 
         api_key = os.getenv("GEMINI_API_KEY")
@@ -51,12 +60,26 @@ class FastSummarizer:
             return
 
         try:
-            genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel(self.MODEL_NAME)
-            self.using_gemini = True
+            if google_genai is not None:
+                self.model = google_genai.Client(api_key=api_key)
+                self.gemini_backend = "google_genai"
+                self.using_gemini = True
+                return
         except Exception:
             self.model = None
             self.using_gemini = False
+            self.gemini_backend = None
+
+        try:
+            if legacy_genai is not None:
+                legacy_genai.configure(api_key=api_key)
+                self.model = legacy_genai.GenerativeModel(self.MODEL_NAME)
+                self.gemini_backend = "legacy_genai"
+                self.using_gemini = True
+        except Exception:
+            self.model = None
+            self.using_gemini = False
+            self.gemini_backend = None
 
     def summarize_chunk(
         self,
@@ -75,8 +98,7 @@ class FastSummarizer:
         if self.using_gemini and self.model is not None:
             try:
                 prompt = self._build_prompt(clean_text, min_length, max_length, summary_options or {})
-                response = self.model.generate_content(prompt)
-                response_text = getattr(response, "text", "") or ""
+                response_text = self._generate_with_model(prompt)
                 if self._looks_too_extractive(response_text, clean_text):
                     response_text = ""
                 polished = self._normalize_model_output(
@@ -279,8 +301,7 @@ class FastSummarizer:
                     max_length=max_length,
                     summary_options=options,
                 )
-                response = self.model.generate_content(prompt)
-                refined_text = getattr(response, "text", "") or ""
+                refined_text = self._generate_with_model(prompt)
                 if not self._looks_too_extractive(refined_text, clean_summary):
                     polished = self._normalize_model_output(
                         refined_text,
@@ -299,6 +320,20 @@ class FastSummarizer:
             min_length=min_length,
             max_length=max_length,
         )
+
+    def _generate_with_model(self, prompt: str) -> str:
+        if not self.model:
+            return ""
+
+        if self.gemini_backend == "google_genai":
+            response = self.model.models.generate_content(
+                model=self.MODEL_NAME,
+                contents=prompt,
+            )
+            return getattr(response, "text", "") or ""
+
+        response = self.model.generate_content(prompt)
+        return getattr(response, "text", "") or ""
 
     def extractive_fallback(
         self,
