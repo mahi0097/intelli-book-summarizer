@@ -9,14 +9,14 @@ from typing import Dict, List, Optional
 
 try:
     from google import genai as google_genai
-except ImportError:
+except Exception:
     google_genai = None
 
 try:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", FutureWarning)
         import google.generativeai as legacy_genai
-except ImportError:
+except Exception:
     legacy_genai = None
 
 
