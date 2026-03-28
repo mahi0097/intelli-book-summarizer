@@ -11,14 +11,15 @@ from utils.database import (
     log_error,
     db
 )
-from utils.formatters import convert_to_bullets
+from utils.formatters import convert_to_bullets, convert_to_executive_summary
 from utils.stats import calculate_summary_stats
+from backend.preprocessing import preprocess_for_summarization
 
 
 class SimpleSummarizer:
     """Cheap fallback used only when the transformer model is unavailable."""
 
-    def summarize_chunk(self, text, min_length=60, max_length=150):
+    def summarize_chunk(self, text, min_length=60, max_length=150, summary_options=None):
         sentences = [s.strip() for s in text.split('.') if s.strip()]
         target_sentences = 3 if min_length <= 80 else 5
         if len(sentences) >= target_sentences:
@@ -35,6 +36,30 @@ class SimpleSummarizer:
 
     def post_process_summary(self, summary):
         return summary.strip()
+
+
+def get_length_profile(length: str):
+    profiles = {
+        "very short": {"min_length": 35, "max_length": 80, "combine_min": 45, "combine_max": 90},
+        "short": {"min_length": 70, "max_length": 130, "combine_min": 80, "combine_max": 150},
+        "medium": {"min_length": 130, "max_length": 220, "combine_min": 150, "combine_max": 260},
+        "long": {"min_length": 220, "max_length": 360, "combine_min": 240, "combine_max": 420},
+        "detailed": {"min_length": 320, "max_length": 520, "combine_min": 350, "combine_max": 600},
+    }
+    return profiles.get(length or "medium", profiles["medium"])
+
+
+def finalize_summary_text(summary_text: str, summary_options: dict) -> str:
+    clean = (summary_text or "").strip()
+    if not clean:
+        return ""
+
+    style = summary_options.get("style")
+    if style == "bullet_points":
+        return convert_to_bullets(clean)
+    if style == "executive_summary":
+        return convert_to_executive_summary(clean)
+    return clean
 
 
 def summarize_with_retry(summarizer, text, length_params, retries=3):
@@ -117,27 +142,27 @@ async def generate_summary(book_id, user_id, summary_options):
             print(f"Primary model failed: {e}")
             summarizer = SimpleSummarizer()
 
-        raw_word_count = len(raw_text.split())
-        if summary_options.get("source") == "pasted_text" and raw_word_count <= 1200:
-            chunks = [raw_text]
+        processed = preprocess_for_summarization(raw_text, chunk_size=800)
+        if processed.get("success") and processed.get("chunks"):
+            chunks = processed["chunks"]
+            raw_text = processed.get("cleaned_text", raw_text)
         else:
-            chunks = summarizer.smart_chunk_text(raw_text)
+            raw_word_count = len(raw_text.split())
+            if summary_options.get("source") == "pasted_text" and raw_word_count <= 1200:
+                chunks = [raw_text]
+            else:
+                chunks = summarizer.smart_chunk_text(raw_text)
 
         total_chunks = len(chunks)
         update_progress(book_id, f"Prepared {total_chunks} smart chunks", 40)
         
         # Configure length
         length = summary_options.get("length", "medium")
-        if length == "very short":
-            length_params = {"min_length": 25, "max_length": 70}
-        elif length == "short":
-            length_params = {"min_length": 50, "max_length": 110}
-        elif length == "long":
-            length_params = {"min_length": 150, "max_length": 300}
-        elif length == "detailed":
-            length_params = {"min_length": 220, "max_length": 420}
-        else:  # medium
-            length_params = {"min_length": 100, "max_length": 180}
+        length_profile = get_length_profile(length)
+        length_params = {
+            "min_length": length_profile["min_length"],
+            "max_length": length_profile["max_length"],
+        }
         
         # STEP 4: Chunk summarization
         chunk_summaries = []
@@ -187,22 +212,17 @@ async def generate_summary(book_id, user_id, summary_options):
         update_progress(book_id, f"Generated {len(chunk_summaries)} chunk summaries", 90)
 
         # STEP 6: Combine summaries
-        combined = " ".join(chunk_summaries)
+        combined = " ".join(chunk_summaries).strip()
 
-        combine_threshold = {
-            "very short": 250,
-            "short": 350,
-            "medium": 550,
-            "long": 900,
-            "detailed": 1400,
-        }.get(length, 550)
+        combine_threshold = max(length_profile["combine_max"] + 40, int(length_profile["combine_max"] * 1.3))
+        should_recombine = total_chunks > 1 or len(combined.split()) > combine_threshold
 
-        if len(combined.split()) > combine_threshold:
+        if should_recombine:
             final_summary = await asyncio.to_thread(
                 summarizer.summarize_chunk,
                 combined,
-                max(100, length_params["min_length"]),
-                max(250, length_params["max_length"]),
+                length_profile["combine_min"],
+                length_profile["combine_max"],
                 summary_options,
             )
         else:
@@ -216,17 +236,27 @@ async def generate_summary(book_id, user_id, summary_options):
                 raw_text,
                 length_params["min_length"],
                 length_params["max_length"],
+                summary_options,
             )
             if fallback_summary and len(fallback_summary.split()) > final_word_count:
                 final_summary = fallback_summary
 
+        if final_summary and hasattr(summarizer, "refine_summary"):
+            refined_summary = await asyncio.to_thread(
+                summarizer.refine_summary,
+                final_summary,
+                length_profile["combine_min"] if should_recombine else length_params["min_length"],
+                length_profile["combine_max"] if should_recombine else length_params["max_length"],
+                summary_options,
+            )
+            if refined_summary:
+                final_summary = refined_summary
 
         # STEP 7: Style formatting
-        if summary_options.get("style") == "bullet_points":
-            try:
-                final_summary = convert_to_bullets(final_summary)
-            except:
-                pass  # Keep as paragraph if conversion fails
+        try:
+            final_summary = finalize_summary_text(final_summary, summary_options)
+        except Exception:
+            pass
 
         # STEP 8: Final cleanup
         final_summary = final_summary.strip()
