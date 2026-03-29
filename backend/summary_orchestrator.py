@@ -62,6 +62,42 @@ def finalize_summary_text(summary_text: str, summary_options: dict) -> str:
     return clean
 
 
+def ensure_summary_shorter_than_source(summary_text: str, source_text: str) -> str:
+    """Guarantee the final summary is shorter than the source when feasible."""
+    clean_summary = (summary_text or "").strip()
+    clean_source = (source_text or "").strip()
+    if not clean_summary or not clean_source:
+        return clean_summary
+
+    source_words = clean_source.split()
+    summary_words = clean_summary.split()
+    if len(summary_words) < len(source_words):
+        return clean_summary
+
+    source_sentences = [s.strip() for s in clean_source.replace("\n", " ").split(".") if s.strip()]
+    summary_sentences = [s.strip() for s in clean_summary.replace("\n", " ").split(".") if s.strip()]
+
+    if len(summary_sentences) > 1:
+        shortened = ". ".join(summary_sentences[:-1]).strip()
+        if shortened and shortened[-1] not in ".!?":
+            shortened += "."
+        if shortened and len(shortened.split()) < len(source_words):
+            return shortened
+
+    max_words = max(10, len(source_words) - 1)
+    shortened = " ".join(summary_words[:max_words]).strip()
+    shortened = shortened.rstrip(",;:-")
+    if shortened and shortened[-1] not in ".!?":
+        shortened += "."
+
+    if len(shortened.split()) >= len(source_words) and len(source_sentences) > 1:
+        shortened = ". ".join(source_sentences[:-1]).strip()
+        if shortened and shortened[-1] not in ".!?":
+            shortened += "."
+
+    return shortened or clean_summary
+
+
 def summarize_with_retry(summarizer, text, length_params, retries=3):
     """Retry summarization if it fails"""
     for attempt in range(retries):
@@ -262,6 +298,8 @@ async def generate_summary(book_id, user_id, summary_options):
         final_summary = final_summary.strip()
         if not final_summary or len(final_summary) < 20:
             final_summary = "Summary generated: " + raw_text[:200] + "..." if len(raw_text) > 200 else raw_text
+
+        final_summary = ensure_summary_shorter_than_source(final_summary, raw_text)
         
         # Ensure proper punctuation
         if final_summary and final_summary[-1] not in '.!?':
