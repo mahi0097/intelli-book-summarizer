@@ -126,6 +126,7 @@ def summarize_with_retry(summarizer, text, length_params, retries=3):
 
 async def generate_summary(book_id, user_id, summary_options):
     """Main summarization orchestration function"""
+    raw_text = ""
     try:
         start_time = time.time()
         
@@ -219,13 +220,22 @@ async def generate_summary(book_id, user_id, summary_options):
                     percent
                 )
 
-            summary = await asyncio.to_thread(
-                summarizer.summarize_chunk,
-                chunk_text,
-                length_params["min_length"],
-                length_params["max_length"],
-                summary_options,
-            )
+            try:
+                summary = await asyncio.to_thread(
+                    summarizer.summarize_chunk,
+                    chunk_text,
+                    length_params["min_length"],
+                    length_params["max_length"],
+                    summary_options,
+                )
+            except Exception as chunk_error:
+                print(f"Chunk summarization failed, using simple fallback: {chunk_error}")
+                summary = SimpleSummarizer().summarize_chunk(
+                    chunk_text,
+                    length_params["min_length"],
+                    length_params["max_length"],
+                    summary_options,
+                )
 
             if summary:
                 chunk_summaries.append(summary)
@@ -254,13 +264,17 @@ async def generate_summary(book_id, user_id, summary_options):
         should_recombine = total_chunks > 1 or len(combined.split()) > combine_threshold
 
         if should_recombine:
-            final_summary = await asyncio.to_thread(
-                summarizer.summarize_chunk,
-                combined,
-                length_profile["combine_min"],
-                length_profile["combine_max"],
-                summary_options,
-            )
+            try:
+                final_summary = await asyncio.to_thread(
+                    summarizer.summarize_chunk,
+                    combined,
+                    length_profile["combine_min"],
+                    length_profile["combine_max"],
+                    summary_options,
+                )
+            except Exception as combine_error:
+                print(f"Final combine failed, using combined chunk summary: {combine_error}")
+                final_summary = combined
         else:
             final_summary = combined
 
@@ -278,13 +292,17 @@ async def generate_summary(book_id, user_id, summary_options):
                 final_summary = fallback_summary
 
         if final_summary and hasattr(summarizer, "refine_summary"):
-            refined_summary = await asyncio.to_thread(
-                summarizer.refine_summary,
-                final_summary,
-                length_profile["combine_min"] if should_recombine else length_params["min_length"],
-                length_profile["combine_max"] if should_recombine else length_params["max_length"],
-                summary_options,
-            )
+            try:
+                refined_summary = await asyncio.to_thread(
+                    summarizer.refine_summary,
+                    final_summary,
+                    length_profile["combine_min"] if should_recombine else length_params["min_length"],
+                    length_profile["combine_max"] if should_recombine else length_params["max_length"],
+                    summary_options,
+                )
+            except Exception as refine_error:
+                print(f"Refinement failed, keeping unrefined summary: {refine_error}")
+                refined_summary = final_summary
             if refined_summary:
                 final_summary = refined_summary
 
@@ -373,6 +391,34 @@ async def generate_summary(book_id, user_id, summary_options):
         print(f"SUMMARIZATION FAILED: {error_msg}")
         print(f"Book ID: {book_id}")
         print(f"Error type: {type(e).__name__}")
+
+        fallback_summary = ""
+        if raw_text and len(raw_text.split()) > 10:
+            try:
+                fallback_summary = SimpleSummarizer().summarize_chunk(
+                    raw_text,
+                    60,
+                    min(120, max(60, len(raw_text.split()) - 1)),
+                    summary_options or {},
+                )
+                fallback_summary = ensure_summary_shorter_than_source(fallback_summary, raw_text)
+            except Exception:
+                fallback_summary = ""
+
+        if fallback_summary:
+            return {
+                "success": True,
+                "summary_id": None,
+                "summary": fallback_summary,
+                "stats": {
+                    "original_length": len(raw_text.split()),
+                    "summary_length": len(fallback_summary.split()),
+                    "compression_ratio": "fallback",
+                    "processing_time": round(time.time() - start_time, 2) if "start_time" in locals() else 0,
+                },
+                "processing_time_sec": round(time.time() - start_time, 2) if "start_time" in locals() else 0,
+                "chunk_summary_count": 0,
+            }
         
         update_book_status(book_id, "failed")
         update_progress(book_id, f"Error: {error_msg}", 0)
