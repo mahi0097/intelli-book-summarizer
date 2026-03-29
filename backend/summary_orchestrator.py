@@ -244,16 +244,11 @@ async def generate_summary(book_id, user_id, summary_options):
         # STEP 5: Check if we have any summaries
         print(f"Total chunk summaries generated: {len(chunk_summaries)}")
         if not chunk_summaries:
-            # Create a simple summary from the original text
-            sentences = raw_text.split('.')
-            sentences = [s.strip() for s in sentences if s.strip() and len(s) > 10]
-            if len(sentences) >= 2:
-                chunk_summaries = ['. '.join(sentences[:2]) + '.']
-            elif len(sentences) == 1:
-                chunk_summaries = [sentences[0]]
-            else:
-                # Last resort
-                chunk_summaries = [raw_text[:300] + "..." if len(raw_text) > 300 else raw_text]
+            words = raw_text.split()
+            fallback = " ".join(words[:80]).strip()
+            if fallback and fallback[-1] not in ".!?":
+                fallback += "."
+            chunk_summaries = [fallback] if fallback else []
         
         update_progress(book_id, f"Generated {len(chunk_summaries)} chunk summaries", 90)
 
@@ -314,8 +309,11 @@ async def generate_summary(book_id, user_id, summary_options):
 
         # STEP 8: Final cleanup
         final_summary = final_summary.strip()
-        if not final_summary or len(final_summary) < 20:
-            final_summary = "Summary generated: " + raw_text[:200] + "..." if len(raw_text) > 200 else raw_text
+        if not final_summary or len(final_summary.strip()) < 20:
+            words = raw_text.split()
+            final_summary = " ".join(words[:50]).strip()
+            if final_summary and final_summary[-1] not in ".!?":
+                final_summary += "."
 
         final_summary = ensure_summary_shorter_than_source(final_summary, raw_text)
         
@@ -366,6 +364,8 @@ async def generate_summary(book_id, user_id, summary_options):
         update_progress(book_id, "Summary completed!", 100)
         update_book_status(book_id, "completed")
 
+        processing_time = max(time.time() - start_time, 0.001)
+
         # Calculate stats
         try:
             stats = calculate_summary_stats(final_summary, raw_text)
@@ -374,7 +374,7 @@ async def generate_summary(book_id, user_id, summary_options):
                 "original_length": len(raw_text.split()),
                 "summary_length": len(final_summary.split()),
                 "compression_ratio": "N/A",
-                "processing_time": round(time.time() - start_time, 2)
+                "processing_time": round(processing_time, 4)
             }
 
         return {
@@ -382,7 +382,7 @@ async def generate_summary(book_id, user_id, summary_options):
             "summary_id": summary_id,
             "summary": final_summary,
             "stats": stats,
-            "processing_time_sec": round(time.time() - start_time, 2),
+            "processing_time_sec": round(processing_time, 4),
             "chunk_summary_count": len(chunk_summaries)
         }
 
@@ -406,6 +406,7 @@ async def generate_summary(book_id, user_id, summary_options):
                 fallback_summary = ""
 
         if fallback_summary:
+            processing_time = max(time.time() - start_time, 0.001) if "start_time" in locals() else 0.001
             return {
                 "success": True,
                 "summary_id": None,
@@ -414,9 +415,9 @@ async def generate_summary(book_id, user_id, summary_options):
                     "original_length": len(raw_text.split()),
                     "summary_length": len(fallback_summary.split()),
                     "compression_ratio": "fallback",
-                    "processing_time": round(time.time() - start_time, 2) if "start_time" in locals() else 0,
+                    "processing_time": round(processing_time, 4),
                 },
-                "processing_time_sec": round(time.time() - start_time, 2) if "start_time" in locals() else 0,
+                "processing_time_sec": round(processing_time, 4),
                 "chunk_summary_count": 0,
             }
         
