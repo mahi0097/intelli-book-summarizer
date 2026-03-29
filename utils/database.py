@@ -1,6 +1,7 @@
 # utils/database.py
 import os
 import re
+import sys
 import bcrypt
 import builtins
 from bson import ObjectId
@@ -47,6 +48,11 @@ load_dotenv()
 
 MONGO_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 DB_NAME = os.getenv("DB_NAME", "book_summarization")
+RUNNING_TESTS = (
+    "pytest" in sys.modules
+    or os.getenv("PYTEST_CURRENT_TEST") is not None
+    or os.path.basename(sys.argv[0]).lower() in {"pytest", "pytest.exe"}
+)
 
 print(f"🔗 MongoDB URI: {MONGO_URI}")
 print(f"📁 Database: {DB_NAME}")
@@ -55,6 +61,8 @@ print(f"📁 Database: {DB_NAME}")
 db = None
 
 try:
+    if RUNNING_TESTS:
+        raise RuntimeError("Skipping live MongoDB connection during pytest execution")
     if MONGO_URI and MONGO_URI != "mongodb://localhost:27017":
         client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
         # Test connection
