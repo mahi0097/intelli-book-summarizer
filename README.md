@@ -242,6 +242,10 @@ test_report.json
 - production-ready deployment config
 - improved model routing and caching
 
+## 🚀 Live Demo
+
+👉 https://intelli-book-summarizer-edt8dvhfd8abepywhbgazd.streamlit.app/
+
 ## License
 
 Add your preferred license here before publishing.
